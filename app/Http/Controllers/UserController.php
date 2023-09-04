@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CreateUserRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use Auth;
+use Hash;
 use Illuminate\Http\Request;
 use Log;
 
@@ -68,5 +71,61 @@ class UserController extends Controller
       'success' => true,
       'message' => $message,
     ], 200);
+  }
+
+  /**
+   * Checks if the login is free
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
+  public function nameIsFree(Request $request)
+  {
+    // return response()->json(["error" => 'test error'], 500);
+    if (!$request->has("name")) return response()->json(["error" => "Name not received"], 500);
+    $name = $request->string("name");
+
+    $user = User::where("name", $name)->first();
+    $isFree = !$user;
+
+    Log::info("check name '{$name}' - " . ($isFree ? "free" : "busy"));
+    return response()->json($isFree, 200);
+  }
+
+  /**
+   * Checks if the email is free
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
+  public function emailIsFree(Request $request)
+  {
+    // return response()->json(["error" => "test error " . __METHOD__], 500);
+    if (!$request->has("email")) return response()->json(["error" => "Email address not received"], 500);
+    $email = $request->string("email");
+
+    $user = User::where("email", $email)->first();
+    $isFree = !$user;
+
+    Log::info("check email '{$email}' - " . ($isFree ? "free" : "busy"));
+    return response()->json($isFree, 200);
+  }
+
+  /**
+   * Registering a new user
+   *
+   * @param CreateUserRequest $request
+   * @return \Illuminate\Http\Response
+   */
+  public function register(CreateUserRequest $request)
+  {
+    // return response()->json(["error" => "test error " . __METHOD__], 500);
+    $regData = $request->only("name", "email", "password");
+    $regData["password"] = Hash::make($regData["password"]);
+
+    $user = User::create($regData);
+    Log::info("register new user - " . json_encode((bool) $user) /*, [$regData, $user]*/);
+    if ($user) return response()->json(true, 200);
+    else return response()->json(["error" => "Failed to save a new user"], 500);
   }
 }

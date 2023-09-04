@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+Route::post('/name-is-free', [UserController::class, 'nameIsFree']);
+Route::post('/email-is-free', [UserController::class, 'emailIsFree']);
+Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
