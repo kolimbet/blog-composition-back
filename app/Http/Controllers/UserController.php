@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateUserRequest;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\UpdateUserPasswordRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Auth;
@@ -127,5 +128,47 @@ class UserController extends Controller
     Log::info("register new user - " . json_encode((bool) $user) /*, [$regData, $user]*/);
     if ($user) return response()->json(true, 200);
     else return response()->json(["error" => "Failed to save a new user"], 500);
+  }
+
+  /**
+   * Check user password
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
+  public function checkPassword(Request $request) {
+    if (!$request->has("password")) return response()->json(["error" => "Password not received"], 500);
+    $password = $request->string("password");
+
+    $user = $request->user();
+    if (!$user) return response()->json(["error" => "User is not logged in"], 500);
+
+    $isCorrect = Hash::check($password, $user->password);
+
+    // return response()->json(["error" => 'test error'], 500);
+    Log::info("check user #{$user->id} password - " . json_encode($isCorrect));
+    return response()->json($isCorrect, 200);
+  }
+
+  /**
+   * Changing the user's password
+   *
+   * @param UpdateUserPasswordRequest $request
+   * @return \Illuminate\Http\Response
+   */
+  public function updatePassword(UpdateUserPasswordRequest $request) {
+    $user = $request->user();
+    if (!$user) return response()->json(["error" => "User is not logged in"], 500);
+
+    $passData = $request->only("password", "new_password", "new_password_repeat");
+    $isPasswordVerified = Hash::check($passData["password"], $user->password);
+    // return response()->json(["error" => 'test error'], 500);
+
+    if (!$isPasswordVerified) return response()->json(["error" => "Invalid current password entered"], 500);
+    $user->password = Hash::make($passData["new_password"]);
+    $result = $user->save();
+    Log::info("change user #{$user->id} password on {$user->password}", [$result]);
+    if ($result) return response()->json((bool) $result, 200);
+    else return response()->json(["error" => "Failed to save a new user password record"], 500);
   }
 }
