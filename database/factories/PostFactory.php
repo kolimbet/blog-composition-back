@@ -19,21 +19,33 @@ class PostFactory extends Factory
   public function definition()
   {
     $title = $this->faker->unique()->sentence(random_int(2, 6));
-    $paragraphs = $this->faker->paragraphs(random_int(3, 12));
-    $text = '';
-    foreach ($paragraphs as $paragraph) {
-      $text .= '<p>' . $paragraph . '</p>';
+
+    $excerpt_paragraphs = $this->faker->paragraphs(random_int(1, 2));
+    $excerpt_html = '';
+    $excerpt_delta = '';
+    foreach ($excerpt_paragraphs as $paragraph) {
+      $excerpt_html .= '<p>' . $paragraph . '</p>';
+      $excerpt_delta .= $paragraph . '\n';
     }
+
+    $text_paragraphs = $this->faker->paragraphs(random_int(3, 12));
+    $text_html = '';
+    $text_delta = '';
+    foreach ($text_paragraphs as $paragraph) {
+      $text_html .= '<p>' . $paragraph . '</p>';
+      $text_delta .= $paragraph . '\n';
+    }
+
     $is_published = (bool) random_int(0, 4);
 
     return [
       'user_id' => User::where('is_admin', true)->inRandomOrder()->first(),
       'title' => $title,
       'slug' => Str::slug($title, '-'),
-      'excerpt_raw' => '',
-      'excerpt_html' => '<p>' . $this->faker->paragraph() . '</p>',
-      'content_raw' => '',
-      'content_html' => $text,
+      'excerpt_raw' => '{"ops":[{"insert":"' . $excerpt_delta . '"}]}',
+      'excerpt_html' => $excerpt_html,
+      'content_raw' => '{"ops":[{"insert":"' . $text_delta . '"}]}',
+      'content_html' => $text_html,
       'is_published' => $is_published,
       'published_at' => $is_published ? now() : null,
     ];

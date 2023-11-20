@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,7 +12,6 @@ class Post extends Model
 
   protected $fillable = [
     'user_id',
-    'main_image_id',
     'title',
     'slug',
     'excerpt_raw',
@@ -39,14 +39,6 @@ class Post extends Model
   }
 
   /**
-   * Get the main image of the post
-   */
-  public function mainImage()
-  {
-    return $this->belongsTo(Image::class);
-  }
-
-  /**
    * Get tags of the post
    */
   public function tags()
@@ -60,5 +52,26 @@ class Post extends Model
   public function comments()
   {
     return $this->hasMany(Comment::class);
+  }
+
+  /**
+   * Mark as published with published at time
+   *
+   * @param [boolean] $value
+   * @return void
+   */
+  public function setIsPublishedAttribute($value) {
+    // Log::info("setIsPublishedAttribute", [$value, $this->attributes]);
+    $value = (bool) $value;
+    $oldValue = null;
+    if (isset($this->attributes['is_published'])) $oldValue = $this->attributes['is_published'];
+    if ($oldValue !== $value) {
+      $this->attributes['is_published'] = $value;
+      if ($value) {
+        $this->attributes['published_at'] = Carbon::now()->format('Y-m-d H:i:s');
+      } else {
+        $this->attributes['published_at'] = null;
+      }
+    }
   }
 }

@@ -9,7 +9,7 @@ class Image extends Model
 {
   use HasFactory;
 
-  protected $fillable = ['user_id', 'post_id', 'name', 'mime_type', 'path'];
+  protected $fillable = ['user_id', 'post_image', 'post_id', 'name', 'mime_type', 'path'];
 
   protected $hidden = ['created_at', 'updated_at'];
 
@@ -35,13 +35,5 @@ class Image extends Model
   public function post()
   {
     return $this->belongsTo(Post::class);
-  }
-
-  /**
-   * Get a post in which the image is set to the main one
-   */
-  public function mainImagePost()
-  {
-    return $this->hasOne(User::class);
   }
 }

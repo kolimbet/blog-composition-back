@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ImageController;
+use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -37,4 +38,11 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
   Route::post('/images', [ImageController::class, 'store']);
   Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+
+  Route::get('/posts', [PostController::class, 'listOfPublished']);
+
+  Route::get('/account/posts', [PostController::class, 'listInAccount']);
+  Route::get('/account/posts/{id}', [PostController::class, 'showInAccount']);
+  Route::post('/account/posts/{id}', [PostController::class, 'update']);
+  Route::post('/account/posts', [PostController::class, 'store']);
 });

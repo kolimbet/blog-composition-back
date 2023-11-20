@@ -43,11 +43,10 @@ class ImageFactory extends Factory
     // Log::info("Image current parameters", [$user->id, $post]);
     if($post) {
       $seederPath = "posts";
-      $targetPath = "posts/{$post->id}";
     } else {
       $seederPath = "avatars";
-      $targetPath = "avatars/{$user->id}";
     }
+    $targetPath = "images/{$user->id}";
 
     $fileList = Storage::disk('seeds')->files($seederPath);
 
@@ -70,6 +69,7 @@ class ImageFactory extends Factory
 
     return $this->state(fn (array $attributes) => [
       'user_id' => $user->id,
+      'post_image' => $post ? true : false,
       'post_id' => $post ? $post->id : null,
       'path' => $targetPath,
       'name' => $newFileName,

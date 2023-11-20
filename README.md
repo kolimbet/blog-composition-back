@@ -43,7 +43,7 @@ Generate a database with seeds:
 php artisan migrate --seed
 ```
 
-If you used seeds, then when rolling back the database using the migrate:rollback command, clear the /storage/app/seeds/avatars and /storage/app/seeds/posts folders.
+If you used seeds, then when rolling back the database using the migrate:rollback command, clear the /storage/app/seeds/images folder.
 
 Set rights:
 

@@ -46,7 +46,7 @@ class ImageController extends Controller
   public function listOfAvatars(Request $request) {
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
-    $images = $user->images()->where('post_id', null)->get();
+    $images = $user->images()->where('post_image', false)->get();
     return response()->json(ImageResource::collection($images), 200);
   }
 
@@ -60,7 +60,11 @@ class ImageController extends Controller
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
     $newImage = $request->only('image', 'image_name');
+    $post_image = false;
     $post_id = null;
+    if ($request->has('post_image')) {
+      $post_image = $request->boolean('post_image');
+    }
     if ($request->has('post_id')) {
       $post_id = $request->integer('post_id');
     }
@@ -70,7 +74,7 @@ class ImageController extends Controller
     $imageName = Str::slug($imageName);
     $generatedImageName =  $imageName;
 
-    $path = $post_id ? "posts/{$user->id}" : "avatars/{$user->id}";
+    $path = "images/{$user->id}";
     if (!Storage::disk('public')->exists($path)) {
       // Storage::disk('public')->makeDirectory($path, "777", true);
       Storage::disk('public')->makeDirectory($path);
@@ -92,6 +96,7 @@ class ImageController extends Controller
 
     $image = Image::create([
       'user_id' => $user->id,
+      'post_image' => $post_image,
       'post_id' => $post_id,
       'path' => $path,
       'name' => "{$generatedImageName}.{$newImage['image']->extension()}",

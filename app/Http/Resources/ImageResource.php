@@ -17,6 +17,7 @@ class ImageResource extends JsonResource
     return [
       'id' => $this->id,
       'user_id' => $this->user_id,
+      'post_image' => $this->post_image,
       'post_id' => $this->post_id,
       'path' => $this->path,
       'name' => $this->name,

@@ -77,4 +77,20 @@ class User extends Authenticatable
   {
     return $this->hasMany(Comment::class);
   }
+
+  /**
+   * Checking the administrator status
+   */
+  public function isAdmin()
+  {
+    return $this->is_admin === true;
+  }
+
+  /**
+   * Checking for a ban
+   */
+  public function isBanned()
+  {
+    return $this->is_banned === true;
+  }
 }
