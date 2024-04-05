@@ -21,7 +21,7 @@ class PostController extends Controller
   public function listInAccount(Request $request)
   {
     $user = $request->user();
-    $postList = $user->posts()->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
+    $postList = $user->posts()->orderBy('id', 'desc')->paginate($this->pageLimit)->withPath('');
     return response()->json($postList, 200);
   }
 
@@ -37,7 +37,7 @@ class PostController extends Controller
 
   public function store(Request $request)
   {
-    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published');
+    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
     }
@@ -46,7 +46,7 @@ class PostController extends Controller
 
     $post = Post::create($postData);
 
-    if ($post) return response()->json($post, 200);
+    if ($post) return response()->json($post->id, 200);
     else return response()->json(["error" => "Failed to save a new post"], 500);
   }
 
@@ -54,7 +54,7 @@ class PostController extends Controller
   {
     $post = null;
     $post = Post::whereId($id)->first();
-    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published');
+    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
     }

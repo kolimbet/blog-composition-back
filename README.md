@@ -2,7 +2,7 @@
 
 API on Laravel 9 for Blog SPA
 
-> Backend for https://github.com/kolimbet/blog-spa-front
+> Backend for https://github.com/kolimbet/blog-composition-front.git
 
 ## API supports:
 

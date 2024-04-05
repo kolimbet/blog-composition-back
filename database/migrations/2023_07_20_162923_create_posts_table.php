@@ -29,6 +29,8 @@ return new class extends Migration
             $table->boolean('is_published')->default(false)->index();
             $table->timestamp('published_at')->nullable();
 
+            $table->string('image_path')->nullable();
+
             $table->softDeletes();
             $table->timestamps();
         });

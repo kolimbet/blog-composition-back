@@ -62,11 +62,16 @@ class ImageController extends Controller
     $newImage = $request->only('image', 'image_name');
     $post_image = false;
     $post_id = null;
+    $image_path = null;
+    $full_path = "";
     if ($request->has('post_image')) {
       $post_image = $request->boolean('post_image');
     }
     if ($request->has('post_id')) {
       $post_id = $request->integer('post_id');
+    }
+    if ($request->has('image_path')) {
+      $image_path = $request->string('image_path');
     }
 
     $imageName = Str::remove(".{$newImage['image']->extension()}", Str::lower($newImage['image_name']));
@@ -74,18 +79,33 @@ class ImageController extends Controller
     $imageName = Str::slug($imageName);
     $generatedImageName =  $imageName;
 
-    $path = "images/{$user->id}";
-    if (!Storage::disk('public')->exists($path)) {
-      // Storage::disk('public')->makeDirectory($path, "777", true);
-      Storage::disk('public')->makeDirectory($path);
+    if ($post_image) {
+      if (!$image_path) {
+        do {
+          $image_path = random_int(1, 999999);
+
+        } while (Storage::disk('public')->exists("images/{$image_path}"));
+        $full_path = "images/{$image_path}";
+        Storage::disk('public')->makeDirectory($full_path);
+      } else {
+        if (!Storage::disk('public')->exists($full_path)) {
+          Log::info("ImageController->store path {$full_path} for post images do not exist.");
+          return response()->json(["error" => "Post image path {$image_path} do not exist"], 500);
+        }
+      }
+    } else {
+      $full_path = "avatars/{$user->id}";
+      if (!Storage::disk('public')->exists($full_path)) {
+        Storage::disk('public')->makeDirectory($full_path);
+      }
     }
 
-    $fullFileName = "{$path}/{$generatedImageName}.{$newImage['image']->extension()}";
+    $fullFileName = "{$full_path}/{$generatedImageName}.{$newImage['image']->extension()}";
     if (Storage::disk('public')->exists($fullFileName)) {
       do {
         Log::info("ImageController->store file {$fullFileName} already exists");
         $generatedImageName = $imageName . random_int(1, 9999);
-        $fullFileName = "{$path}/{$generatedImageName}.{$newImage['image']->extension()}";
+        $fullFileName = "{$full_path}/{$generatedImageName}.{$newImage['image']->extension()}";
       } while (Storage::disk('public')->exists($fullFileName));
     }
 
@@ -98,14 +118,17 @@ class ImageController extends Controller
       'user_id' => $user->id,
       'post_image' => $post_image,
       'post_id' => $post_id,
-      'path' => $path,
+      'path' => $full_path,
       'name' => "{$generatedImageName}.{$newImage['image']->extension()}",
       'mime_type' => $newImage['image']->extension(),
     ]);
 
     if ($image) {
       Log::info("ImageController->store file {$fullFileName} was saved and registered in DB #{$image->id}");
-      return response()->json(new ImageResource($image), 200);
+      return response()->json([
+        'image' => new ImageResource($image),
+        'post_image_path' => $image_path,
+      ] , 200);
     } else {
       $isDeleted = Storage::disk('public')->delete($fullFileName);
       Log::info("ImageController->store registered in DB Error for {$fullFileName}. Clear - " . json_encode($isDeleted));

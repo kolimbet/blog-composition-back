@@ -20,6 +20,7 @@ class Post extends Model
     'content_html',
     'is_published',
     'published_at',
+    'image_path',
   ];
 
   /**

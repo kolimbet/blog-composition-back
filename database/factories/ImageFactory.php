@@ -43,10 +43,24 @@ class ImageFactory extends Factory
     // Log::info("Image current parameters", [$user->id, $post]);
     if($post) {
       $seederPath = "posts";
+      if ($post->image_path) {
+        $targetPath = "images/{$post->image_path}";
+      } else {
+        $post_image_path = null;
+        do {
+          $post_image_path= random_int(1, 999999);
+        } while (Storage::disk('public')->exists("images/{$post_image_path}"));
+        $post->image_path = $post_image_path;
+        $post->save();
+        $targetPath = "images/{$post_image_path}";
+        Storage::disk('public')->makeDirectory($targetPath);
+
+      }
+
     } else {
       $seederPath = "avatars";
+      $targetPath = "avatars/{$user->id}";
     }
-    $targetPath = "images/{$user->id}";
 
     $fileList = Storage::disk('seeds')->files($seederPath);
 

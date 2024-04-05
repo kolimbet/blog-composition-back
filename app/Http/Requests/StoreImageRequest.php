@@ -28,6 +28,7 @@ class StoreImageRequest extends FormRequest
       'image_name' => ['required', 'string', 'max:40'],
       'post_image' => 'sometimes|boolean',
       'post_id' => 'sometimes|nullable|integer',
+      'image_path' => 'sometimes|nullable|string',
     ];
   }
 }
