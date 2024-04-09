@@ -19,7 +19,7 @@ API on Laravel 9 for Blog SPA
 Clone this repository to your server:
 
 ```
-git clone https://github.com/kolimbet/blog-spa-back.git blog-spa.back
+git clone https://github.com/kolimbet/blog-composition-back.git blog-composition.back
 ```
 
 Install the necessary composer packages:

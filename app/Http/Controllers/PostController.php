@@ -14,12 +14,14 @@ class PostController extends Controller
 
   public function listOfPublished(Request $request)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
     return response()->json($postList, 200);
   }
 
   public function listInAccount(Request $request)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $user = $request->user();
     $postList = $user->posts()->orderBy('id', 'desc')->paginate($this->pageLimit)->withPath('');
     return response()->json($postList, 200);
@@ -27,6 +29,7 @@ class PostController extends Controller
 
   public function showInAccount(Request $request, $id)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $post = null;
     if (ctype_digit($id)) $post = Post::whereId($id)->first();
     if (!$post) $post = Post::whereSlug($id)->first();
@@ -37,6 +40,7 @@ class PostController extends Controller
 
   public function store(Request $request)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
@@ -52,6 +56,7 @@ class PostController extends Controller
 
   public function update(Request $request, $id)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $post = null;
     $post = Post::whereId($id)->first();
     $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
