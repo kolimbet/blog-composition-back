@@ -12,7 +12,7 @@ class PostController extends Controller
 {
   protected $pageLimit = 10;
 
-  public function listOfPublished(Request $request)
+  public function feed(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
     $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
@@ -27,12 +27,23 @@ class PostController extends Controller
     return response()->json($postList, 200);
   }
 
-  public function showInAccount(Request $request, $id)
+  public function show(Request $request, $slug)
   {
     // return response()->json(["error" => "Test error"], 500);
     $post = null;
-    if (ctype_digit($id)) $post = Post::whereId($id)->first();
-    if (!$post) $post = Post::whereSlug($id)->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
+    if (!$post) $post = Post::whereSlug($slug)->first();
+    if (!$post) return response()->json(["error" => "Record not found"], 500);
+
+    return response()->json($post, 200);
+  }
+
+  public function showInAccount(Request $request, $slug)
+  {
+    // return response()->json(["error" => "Test error"], 500);
+    $post = null;
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
+    if (!$post) $post = Post::whereSlug($slug)->first();
     if (!$post) return response()->json(["error" => "Record not found"], 500);
 
     return response()->json($post, 200);

@@ -22,6 +22,9 @@ Route::post('/email-is-free', [UserController::class, 'emailIsFree']);
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 
+Route::get('/posts', [PostController::class, 'feed']);
+Route::get('/posts/{slug}', [PostController::class, 'show']);
+
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/logout', [UserController::class, 'logout']);
 
@@ -39,10 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::post('/images', [ImageController::class, 'store']);
   Route::delete('/images/{id}', [ImageController::class, 'destroy']);
 
-  Route::get('/posts', [PostController::class, 'listOfPublished']);
-
   Route::get('/account/posts', [PostController::class, 'listInAccount']);
-  Route::get('/account/posts/{id}', [PostController::class, 'showInAccount']);
+  Route::get('/account/posts/{slug}', [PostController::class, 'showInAccount']);
   Route::post('/account/posts/{id}', [PostController::class, 'update']);
   Route::post('/account/posts', [PostController::class, 'store']);
 });
