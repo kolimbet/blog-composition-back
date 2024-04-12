@@ -42,8 +42,11 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::post('/images', [ImageController::class, 'store']);
   Route::delete('/images/{id}', [ImageController::class, 'destroy']);
 
-  Route::get('/account/posts', [PostController::class, 'listInAccount']);
-  Route::get('/account/posts/{slug}', [PostController::class, 'showInAccount']);
-  Route::post('/account/posts/{id}', [PostController::class, 'update']);
-  Route::post('/account/posts', [PostController::class, 'store']);
+  Route::middleware('is.admin')->group(function () {
+    Route::get('/admin/posts', [PostController::class, 'listInAccount']);
+    Route::get('/admin/posts/{slug}', [PostController::class, 'showInAccount']);
+    Route::post('/admin/posts/{id}', [PostController::class, 'update']);
+    Route::post('/admin/posts', [PostController::class, 'store']);
+  });
+
 });

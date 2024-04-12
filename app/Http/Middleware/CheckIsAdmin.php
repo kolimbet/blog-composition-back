@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
-use Auth;
 use Closure;
 use Illuminate\Http\Request;
+use Log;
+use Symfony\Component\Finder\Exception\AccessDeniedException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class CheckIsAdmin
 {
@@ -17,8 +19,12 @@ class CheckIsAdmin
    */
   public function handle(Request $request, Closure $next)
   {
-    if(!Auth::user() || !Auth::user()->isAdmin()) abort('403');
-
-    return $next($request);
+    // Log::info("Middleware CheckIsAdmin: ", [$request->user(), Auth::user()->isAdmin()]);
+    if(!$request->user() || !$request->user()->isAdmin())
+    {
+      Log::info("Access denied to '{$request->path()}' for {$request->user()->name} #{$request->user()->id}");
+      throw new AccessDeniedHttpException('Access denied');
+    }
+    else return $next($request);
   }
 }

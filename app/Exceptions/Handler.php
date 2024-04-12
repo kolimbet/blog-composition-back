@@ -2,8 +2,9 @@
 
 namespace App\Exceptions;
 
-use Config;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -44,22 +45,63 @@ class Handler extends ExceptionHandler
    */
   public function register()
   {
-    $this->reportable(function (Throwable $e) {
-      //
-    });
+    //
   }
 
   public function render($request, Throwable $e)
   {
-    $error = $this->convertExceptionToResponse($e);
-    $response = [];
-    if ($error->getStatusCode() == 500) {
-      $response['error'] = $e->getMessage();
-      if (Config::get('app.debug')) {
-        $response['trace'] = $e->getTraceAsString();
-        $response['code'] = $e->getCode();
+    if ($e instanceof AuthenticationException) {
+      return $this->customApiResponse($e, 'Unauthorized', 401);
+    }
+    if ($e instanceof AccessDeniedHttpException) {
+      return $this->customApiResponse($e, '', 403);
+    }
+
+    return $this->customApiResponse($e);
+  }
+
+  private function customApiResponse($exception, $message = "", $statusCode = 0)
+  {
+    if (!$statusCode) {
+      if (method_exists($exception, 'getStatusCode')) {
+        $statusCode = $exception->getStatusCode();
+      } else {
+        $statusCode = 500;
       }
     }
-    return response()->json($response, $error->getStatusCode());
+
+    $response['status'] = $statusCode;
+
+    $response['message'] = $message ? $message : $exception->getMessage();
+    if (!$response['message']) {
+      switch ($statusCode) {
+        case 401:
+          $response['message'] = 'Unauthorized';
+          break;
+        case 403:
+          $response['message'] = 'Forbidden';
+          break;
+        case 404:
+          $response['message'] = 'Not Found';
+          break;
+        case 405:
+          $response['message'] = 'Method Not Allowed';
+          break;
+        case 422:
+          $response['message'] = $exception->original['message'];
+          $response['errors'] = $exception->original['errors'];
+          break;
+        default:
+          $response['message'] = ($statusCode == 500) ? 'Whoops, looks like something went wrong' : $exception->getMessage();
+          break;
+      }
+    }
+
+    // if (config('app.debug')) {
+    //   $response['trace'] = $exception->getTrace();
+    //   $response['code'] = $exception->getCode();
+    // }
+
+    return response()->json($response, $statusCode);
   }
 }
