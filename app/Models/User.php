@@ -83,7 +83,7 @@ class User extends Authenticatable
    */
   public function isAdmin()
   {
-    return $this->is_admin === true;
+    return $this->is_admin == true;
   }
 
   /**
@@ -91,6 +91,6 @@ class User extends Authenticatable
    */
   public function isBanned()
   {
-    return $this->is_banned === true;
+    return $this->is_banned == true;
   }
 }

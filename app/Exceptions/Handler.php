@@ -45,7 +45,17 @@ class Handler extends ExceptionHandler
    */
   public function register()
   {
-    //
+    //   $this->reportable(function (AuthenticationException $e, $request) {
+    //     Log::info("Handler->register->AuthenticationException callback", [$e]);
+    //   // if ($request->is('api/*')) {
+
+    //     return response()->json([
+    //       'status_code' => 401,
+    //       'success' => false,
+    //       'message' => 'Unauthenticated'
+    //     ], 401);
+    //   // }
+    //  });
   }
 
   public function render($request, Throwable $e)
@@ -97,10 +107,10 @@ class Handler extends ExceptionHandler
       }
     }
 
-    // if (config('app.debug')) {
-    //   $response['trace'] = $exception->getTrace();
-    //   $response['code'] = $exception->getCode();
-    // }
+    if (config('app.debug')) {
+      $response['trace'] = $exception->getTrace();
+      $response['code'] = $exception->getCode();
+    }
 
     return response()->json($response, $statusCode);
   }
