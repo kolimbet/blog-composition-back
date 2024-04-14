@@ -26,9 +26,9 @@ class StoreImageRequest extends FormRequest
     return [
       'image' => 'image|max:1024|mimes:png,jpg,webp',
       'image_name' => ['required', 'string', 'max:40'],
-      'post_image' => 'sometimes|boolean',
+      'attached_to_post' => 'sometimes|boolean',
       'post_id' => 'sometimes|nullable|integer',
-      'image_path' => 'sometimes|nullable|string',
+      'image_folder' => 'sometimes|nullable|string',
     ];
   }
 }

@@ -9,7 +9,7 @@ class Image extends Model
 {
   use HasFactory;
 
-  protected $fillable = ['user_id', 'post_image', 'post_id', 'name', 'mime_type', 'path'];
+  protected $fillable = ['user_id', 'attached_to_post', 'post_id', 'name', 'mime_type', 'path'];
 
   protected $hidden = ['created_at', 'updated_at'];
 

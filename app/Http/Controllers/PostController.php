@@ -52,7 +52,7 @@ class PostController extends Controller
   public function store(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
-    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
+    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_folder');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
     }
@@ -70,7 +70,7 @@ class PostController extends Controller
     // return response()->json(["error" => "Test error"], 500);
     $post = null;
     $post = Post::whereId($id)->first();
-    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
+    $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_folder');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
     }

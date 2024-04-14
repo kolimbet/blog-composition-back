@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('images', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->boolean('post_image')->default(0);
+            $table->boolean('attached_to_post')->default(0);
             $table->foreignId('post_id')->nullable()->constrained('posts')->cascadeOnDelete();
             $table->string('path');
             $table->string('name');

@@ -83,7 +83,7 @@ class ImageFactory extends Factory
 
     return $this->state(fn (array $attributes) => [
       'user_id' => $user->id,
-      'post_image' => $post ? true : false,
+      'attached_to_post' => $post ? true : false,
       'post_id' => $post ? $post->id : null,
       'path' => $targetPath,
       'name' => $newFileName,

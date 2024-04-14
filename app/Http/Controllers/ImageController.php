@@ -2,26 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\DataConflictException;
+use App\Exceptions\DBRequestFailedException;
 use App\Http\Requests\StoreImageRequest;
 use App\Http\Resources\ImageResource;
 use App\Models\Image;
+use App\Models\Post;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Log;
+use Nette\DirectoryNotFoundException;
+use SebastianBergmann\CodeCoverage\Util\DirectoryCouldNotBeCreatedException;
 use Storage;
 use Str;
+use Symfony\Component\HttpFoundation\File\Exception\CannotWriteFileException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class ImageController extends Controller
 {
   /**
-   * Display a listing of the resource.
+   * Display a listing of the user avatar images.
    *
    * @param Request $request
    * @return \Illuminate\Http\Response
    */
-  public function list(Request $request) {
+  public function listOfAvatars(Request $request)
+  {
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
-    $images = $user->images()->get();
+    $images = $user->images()->where('attached_to_post', false)->get();
     return response()->json(ImageResource::collection($images), 200);
   }
 
@@ -31,109 +40,159 @@ class ImageController extends Controller
    * @param Request $request
    * @return \Illuminate\Http\Response
    */
-  public function listForPost(Request $request, $post) {
+  public function listForPost(Request $request, $post)
+  {
     // return response()->json(["error" => 'test error'], 500);
     $images = $post->images()->get();
     return response()->json(ImageResource::collection($images), 200);
   }
 
   /**
-   * Display a listing of the user avatar images.
-   *
-   * @param Request $request
-   * @return \Illuminate\Http\Response
-   */
-  public function listOfAvatars(Request $request) {
-    // return response()->json(["error" => 'test error'], 500);
-    $user = $request->user();
-    $images = $user->images()->where('post_image', false)->get();
-    return response()->json(ImageResource::collection($images), 200);
-  }
-
-  /**
-   * Store a newly created resource in storage.
+   * Store a newly avatar for user.
    *
    * @param StoreImageRequest $request
    * @return \Illuminate\Http\Response
    */
-  public function store(StoreImageRequest $request) {
+  public function storeAvatar(StoreImageRequest $request)
+  {
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
-    $newImage = $request->only('image', 'image_name');
-    $post_image = false;
-    $post_id = null;
-    $image_path = null;
-    $full_path = "";
-    if ($request->has('post_image')) {
-      $post_image = $request->boolean('post_image');
-    }
-    if ($request->has('post_id')) {
-      $post_id = $request->integer('post_id');
-    }
-    if ($request->has('image_path')) {
-      $image_path = $request->string('image_path');
+    ['image' => $uploadedImage, 'image_name' => $uploadedImageName] = $request->only('image', 'image_name');
+
+    $imagePath = null;
+
+    $imagePath = "avatars/{$user->id}";
+    if (!Storage::disk('public')->exists($imagePath)) {
+      if (!Storage::disk('public')->makeDirectory($imagePath)) {
+        throw new DirectoryCouldNotBeCreatedException("Failed creating the directory {$imagePath}", 500);
+      }
     }
 
-    $imageName = Str::remove(".{$newImage['image']->extension()}", Str::lower($newImage['image_name']));
+    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, true, null);
+  }
+
+  /**
+   * Store a newly image for Post
+   *
+   * @param StoreImageRequest $request
+   * @return \Illuminate\Http\Response
+   */
+  public function storeAttachedToPost(StoreImageRequest $request)
+  {
+    // return response()->json(["error" => 'test error'], 500);
+    $user = $request->user();
+    if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
+
+    ['image' => $uploadedImage, 'image_name' => $uploadedImageName] = $request->only('image', 'image_name');
+
+    $postId = null;
+    $post = null;
+    $imageFolder = null;
+    $imagePath = "";
+
+    if ($request->has('image_folder')) {
+      $imageFolder = $request->string('image_folder');
+    }
+
+    if ($request->has('post_id')) {
+      $postId = $request->integer('post_id');
+      /** @var Post */
+      $post = Post::firstOrFail($postId);
+
+      if ($post->image_path) {
+        if (!$imageFolder) {
+          $imageFolder = $post->image_path;
+        } elseif ($post->image_path !== $imageFolder) {
+          throw new DataConflictException();
+        }
+      }
+    }
+
+    if ($imageFolder) {
+      $imagePath = "images/{$imageFolder}";
+      if (!Storage::disk('public')->exists("images/{$imageFolder}")) {
+        throw new DirectoryNotFoundException("Directory {$imagePath} not found", 404);
+      }
+    } else {
+      do {
+        $imageFolder = random_int(1, 999999999999);
+      } while (Storage::disk('public')->exists("images/{$imageFolder}"));
+
+      $imagePath = "images/{$imageFolder}";
+
+      if (!Storage::disk('public')->makeDirectory($imagePath)) {
+        throw new DirectoryCouldNotBeCreatedException("Failed creating the directory {$imagePath}", 500);
+      }
+
+      if ($post && !$post->image_path) {
+        $post->image_path = $imageFolder;
+        if (!$post->save()) {
+          $isCleared = Storage::disk('public')->deleteDirectory($imagePath);
+          Log::warning("ImageController->storeAttachedToPost():
+            Failed saved in the DB for a new image_folder of Post->#{$post->id}.
+            Unregistered directory {$imagePath} has been deleted: " + var_export($isCleared, true));
+
+          throw new DBRequestFailedException("Failed saved in the DB for a new image_folder of Post->#{$post->id}");
+        }
+      }
+    }
+
+    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, true, $postId);
+  }
+
+  /**
+   * Saves the uploaded image to the storage and databases
+   *
+   * @param User $user
+   * @param string $imagePath
+   * @param [type] $uploadedImage
+   * @param string $uploadedImageNam
+   * @param boolean $attachedToPost
+   * @param [type] $postId
+   * @return void
+   */
+  private function saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, $attachedToPost = false, $postId = null)
+  {
+    $imageName = Str::remove(".{$uploadedImage->extension()}", Str::lower($uploadedImageName));
     // $imageName = urlencode($imageName); // не подходит для русских имён файлов
     $imageName = Str::slug($imageName);
     $generatedImageName =  $imageName;
 
-    if ($post_image) {
-      if (!$image_path) {
-        do {
-          $image_path = random_int(1, 999999);
-
-        } while (Storage::disk('public')->exists("images/{$image_path}"));
-        $full_path = "images/{$image_path}";
-        Storage::disk('public')->makeDirectory($full_path);
-      } else {
-        if (!Storage::disk('public')->exists($full_path)) {
-          Log::info("ImageController->store path {$full_path} for post images do not exist.");
-          return response()->json(["error" => "Post image path {$image_path} do not exist"], 500);
-        }
-      }
-    } else {
-      $full_path = "avatars/{$user->id}";
-      if (!Storage::disk('public')->exists($full_path)) {
-        Storage::disk('public')->makeDirectory($full_path);
-      }
-    }
-
-    $fullFileName = "{$full_path}/{$generatedImageName}.{$newImage['image']->extension()}";
+    $fullFileName = "{$imagePath}/{$generatedImageName}.{$uploadedImage->extension()}";
     if (Storage::disk('public')->exists($fullFileName)) {
       do {
         Log::info("ImageController->store file {$fullFileName} already exists");
         $generatedImageName = $imageName . random_int(1, 9999);
-        $fullFileName = "{$full_path}/{$generatedImageName}.{$newImage['image']->extension()}";
+        $fullFileName = "{$imagePath}/{$generatedImageName}.{$uploadedImage->extension()}";
       } while (Storage::disk('public')->exists($fullFileName));
     }
 
-    if (!Storage::disk('public')->put($fullFileName, $newImage['image']->get())) {
-      Log::info("ImageController->store file saved error", [$fullFileName]);
-      return response()->json(["error" => 'Image file saving error'], 500);
+    if (!Storage::disk('public')->put($fullFileName, $uploadedImage->get())) {
+      Log::error('ImageController->saveImageFile file saved error', [$fullFileName]);
+      throw new CannotWriteFileException('ImageController->saveImageFile file saved error');
     }
 
     $image = Image::create([
       'user_id' => $user->id,
-      'post_image' => $post_image,
-      'post_id' => $post_id,
-      'path' => $full_path,
-      'name' => "{$generatedImageName}.{$newImage['image']->extension()}",
-      'mime_type' => $newImage['image']->extension(),
+      'attached_to_post' => $attachedToPost,
+      'post_id' => $postId,
+      'path' => $imagePath,
+      'name' => "{$generatedImageName}.{$uploadedImage->extension()}",
+      'mime_type' => $uploadedImage->extension(),
     ]);
 
-    if ($image) {
-      Log::info("ImageController->store file {$fullFileName} was saved and registered in DB #{$image->id}");
-      return response()->json([
-        'image' => new ImageResource($image),
-        'post_image_path' => $image_path,
-      ] , 200);
-    } else {
-      $isDeleted = Storage::disk('public')->delete($fullFileName);
-      Log::info("ImageController->store registered in DB Error for {$fullFileName}. Clear - " . json_encode($isDeleted));
-      return response()->json(["error" => 'Registered in DB Error'], 500);
+    if (!$image) {
+      $isCleared = Storage::disk('public')->delete($fullFileName);
+      Log::warning("ImageController->saveUploadedImageFile: Failed registered in DB for image {$fullFileName}.
+        Unregistered file has been deleted: " . var_export($isCleared, true));
+      throw new DBRequestFailedException("Failed registered in DB for image {$fullFileName}");
     }
+
+    Log::info("ImageController->saveUploadedImageFile: image {$fullFileName} was saved and registered in DB #{$image->id} by {$user->name} #{$user->id}");
+    return response()->json([
+      'image' => new ImageResource($image),
+      'image_folder' => $imagePath,
+    ], 200);
   }
 
   /**
@@ -143,7 +202,8 @@ class ImageController extends Controller
    * @param int $id
    * @return \Illuminate\Http\Response
    */
-  public function destroy(Request $request, $id) {
+  public function destroy(Request $request, $id)
+  {
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
 

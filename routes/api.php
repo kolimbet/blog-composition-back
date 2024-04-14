@@ -3,7 +3,6 @@
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,17 +35,18 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::post('/user/avatar', [UserController::class, 'setAvatar']);
   Route::delete('/user/avatar', [UserController::class, 'deleteAvatar']);
 
-  Route::get('/images', [ImageController::class, 'list']);
-  Route::get('/images/avatars', [ImageController::class, 'listOfAvatars']);
-  Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
-  Route::post('/images', [ImageController::class, 'store']);
-  Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+  Route::get('/avatars', [ImageController::class, 'listOfAvatars']);
+  Route::post('/avatars', [ImageController::class, 'storeAvatar']);
+  Route::delete('/avatars/{id}', [ImageController::class, 'destroy']);
 
   Route::middleware('is.admin')->group(function () {
     Route::get('/admin/posts', [PostController::class, 'listInAccount']);
     Route::get('/admin/posts/{slug}', [PostController::class, 'showInAccount']);
     Route::post('/admin/posts/{id}', [PostController::class, 'update']);
     Route::post('/admin/posts', [PostController::class, 'store']);
-  });
 
+    Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
+    Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
+    Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+  });
 });
