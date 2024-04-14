@@ -37,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
   Route::get('/avatars', [ImageController::class, 'listOfAvatars']);
   Route::post('/avatars', [ImageController::class, 'storeAvatar']);
-  Route::delete('/avatars/{id}', [ImageController::class, 'destroy']);
+  Route::delete('/avatars/{id}', [ImageController::class, 'destroyAvatar']);
 
   Route::middleware('is.admin')->group(function () {
     Route::get('/admin/posts', [PostController::class, 'listInAccount']);
@@ -47,6 +47,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
     Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
-    Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+    Route::delete('/images/{id}', [ImageController::class, 'destroyImage']);
   });
 });

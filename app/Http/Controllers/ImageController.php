@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\DataConflictException;
-use App\Exceptions\DBRequestFailedException;
+use App\Exceptions\FailedDeletingFileException;
+use App\Exceptions\FailedRequestDBException;
 use App\Http\Requests\StoreImageRequest;
 use App\Http\Resources\ImageResource;
 use App\Models\Image;
@@ -132,7 +133,7 @@ class ImageController extends Controller
             Failed saved in the DB for a new image_folder of Post->#{$post->id}.
             Unregistered directory {$imagePath} has been deleted: " + var_export($isCleared, true));
 
-          throw new DBRequestFailedException("Failed saved in the DB for a new image_folder of Post->#{$post->id}");
+          throw new FailedRequestDBException("Failed saved in the DB for a new image_folder of Post->#{$post->id}");
         }
       }
     }
@@ -149,7 +150,7 @@ class ImageController extends Controller
    * @param string $uploadedImageNam
    * @param boolean $attachedToPost
    * @param [type] $postId
-   * @return void
+   * @return \Illuminate\Http\Response
    */
   private function saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, $attachedToPost = false, $postId = null)
   {
@@ -185,7 +186,7 @@ class ImageController extends Controller
       $isCleared = Storage::disk('public')->delete($fullFileName);
       Log::warning("ImageController->saveUploadedImageFile: Failed registered in DB for image {$fullFileName}.
         Unregistered file has been deleted: " . var_export($isCleared, true));
-      throw new DBRequestFailedException("Failed registered in DB for image {$fullFileName}");
+      throw new FailedRequestDBException("Failed registered in DB for image {$fullFileName}");
     }
 
     Log::info("ImageController->saveUploadedImageFile: image {$fullFileName} was saved and registered in DB #{$image->id} by {$user->name} #{$user->id}");
@@ -196,28 +197,62 @@ class ImageController extends Controller
   }
 
   /**
-   * Remove the specified resource from storage.
+   * Remove a user's avatar image
    *
    * @param Request $request
    * @param int $id
    * @return \Illuminate\Http\Response
    */
-  public function destroy(Request $request, $id)
+  public function destroyAvatar(Request $request, $id)
   {
     // return response()->json(["error" => 'test error'], 500);
     $user = $request->user();
+    $image = $user->images()->firstOrFail($id);
 
-    $image = $user->images()->where('id', $id)->first();
-    if (!$image) return response()->json(["error" => 'Image record not found'], 500);
+    return $this->destroy($image, $id);
+  }
 
+  /**
+   * Remove image
+   *
+   * @param Request $request
+   * @param int $id
+   * @return \Illuminate\Http\Response
+   */
+  public function destroyImage(Request $request, $id)
+  {
+    // return response()->json(["error" => 'test error'], 500);
+    $user = $request->user();
+    if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
+
+    $image = Image::firstOrFail($id);
+
+    return $this->destroy($image, $id);
+  }
+
+  /**
+   * Deleting image file and DB record
+   *
+   * @param Image $image
+   * @param int $id
+   * @return \Illuminate\Http\Response
+   */
+  private function destroy(Image $image, $id)
+  {
     $fullFileName = "{$image->path}/{$image->name}";
-    $isFileDeleted = Storage::disk('public')->delete($fullFileName);
-    if (!$isFileDeleted && Storage::disk('public')->exists($fullFileName))
-      return response()->json(["error" => 'Error deleting an image file'], 500);
+
+    if (Storage::disk('public')->exists($fullFileName)) {
+      $isFileDeleted = Storage::disk('public')->delete($fullFileName);
+      if (!$isFileDeleted) {
+        throw new FailedDeletingFileException("Failed deleting an image file");
+      }
+    }
 
     $isRecordDeleted = $image->delete();
+    if (!$isRecordDeleted) {
+      throw new FailedRequestDBException("Failed deleting an image DB record");
+    }
 
-    if ($isRecordDeleted) return response()->json("Record #{$id} deleted", 200);
-    else return response()->json(["error" => "Error deleting an image record"], 404);
+    return response()->json("Image #{$id} has been deleted", 200);
   }
 }

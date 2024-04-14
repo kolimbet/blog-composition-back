@@ -6,9 +6,9 @@ use Exception;
 use Throwable;
 
 /**
- * Thrown when the request to create || insert || update the DB failed
+ * Thrown when the request to create || insert || update || delete the DB failed
  */
-class DBRequestFailedException extends Exception
+class FailedRequestDBException extends Exception
 {
   public function __construct(string $message = 'Failed request to DB', int $code = 500, Throwable|null $previous = null )
   {
