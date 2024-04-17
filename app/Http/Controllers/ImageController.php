@@ -10,6 +10,7 @@ use App\Http\Resources\ImageResource;
 use App\Models\Image;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Http\Request;
 use Log;
 use Nette\DirectoryNotFoundException;
@@ -69,7 +70,7 @@ class ImageController extends Controller
       }
     }
 
-    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, true, null);
+    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, false, null);
   }
 
   /**
@@ -169,8 +170,7 @@ class ImageController extends Controller
     }
 
     if (!Storage::disk('public')->put($fullFileName, $uploadedImage->get())) {
-      Log::error('ImageController->saveImageFile file saved error', [$fullFileName]);
-      throw new CannotWriteFileException('ImageController->saveImageFile file saved error');
+      throw new CannotWriteFileException('ImageController->saveImageFile file saved error ' . $fullFileName);
     }
 
     $image = Image::create([
@@ -200,15 +200,17 @@ class ImageController extends Controller
    * Remove a user's avatar image
    *
    * @param Request $request
-   * @param int $id
+   * @param [type] $id
    * @return \Illuminate\Http\Response
    */
   public function destroyAvatar(Request $request, $id)
   {
-    // return response()->json(["error" => 'test error'], 500);
+    // return response()->json(["error" => 'destroyAvatar test error'], 500);
     $user = $request->user();
-    $image = $user->images()->firstOrFail($id);
-
+    $image = $user->images()->firstWhere('id', $id);
+    if (!$image) {
+      throw new RecordsNotFoundException('Image not found');
+    }
     return $this->destroy($image, $id);
   }
 
@@ -253,6 +255,7 @@ class ImageController extends Controller
       throw new FailedRequestDBException("Failed deleting an image DB record");
     }
 
+    Log::info("Image #{$id} has been deleted");
     return response()->json("Image #{$id} has been deleted", 200);
   }
 }
