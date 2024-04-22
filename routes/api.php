@@ -40,13 +40,22 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::delete('/avatars/{id}', [ImageController::class, 'destroyAvatar']);
 
   Route::middleware('is.admin')->group(function () {
-    Route::get('/admin/posts', [PostController::class, 'listInAccount']);
-    Route::get('/admin/posts/{slug}', [PostController::class, 'showInAccount']);
-    Route::post('/admin/posts/{id}', [PostController::class, 'update']);
+    Route::get('/admin/posts', [PostController::class, 'listForAdmin']);
+    Route::get('/admin/posts/{slug}', [PostController::class, 'showForAdmin']);
+    Route::post('/admin/posts/{post}', [PostController::class, 'update']);
     Route::post('/admin/posts', [PostController::class, 'store']);
 
-    Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
+    Route::get('/images/post/{postId}', [ImageController::class, 'listForPost']);
     Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
     Route::delete('/images/{id}', [ImageController::class, 'destroyImage']);
   });
 });
+
+/**
+ * Allows you to delete images that are not attached to the post
+ * from the created directory and the directory itself.
+ *
+ * Removed from middleware is.admin to resolve the situation with logging out
+ * of the account during the creation of the post.
+ */
+Route::post('/images/clear', [ImageController::class, 'clearNonAttached']);

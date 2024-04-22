@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\DataConflictException;
+use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedDeletingFileException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Requests\StoreImageRequest;
@@ -10,6 +11,7 @@ use App\Http\Resources\ImageResource;
 use App\Models\Image;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Http\Request;
 use Log;
@@ -17,6 +19,7 @@ use Nette\DirectoryNotFoundException;
 use SebastianBergmann\CodeCoverage\Util\DirectoryCouldNotBeCreatedException;
 use Storage;
 use Str;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\File\Exception\CannotWriteFileException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -42,7 +45,7 @@ class ImageController extends Controller
    * @param Request $request
    * @return \Illuminate\Http\Response
    */
-  public function listForPost(Request $request, $post)
+  public function listForPost(Request $request, Post $post)
   {
     // return response()->json(["error" => 'test error'], 500);
     $images = $post->images()->get();
@@ -70,7 +73,7 @@ class ImageController extends Controller
       }
     }
 
-    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName, false, null);
+    return $this->saveUploadedImage($user, $imagePath, $uploadedImage, $uploadedImageName);
   }
 
   /**
@@ -82,6 +85,7 @@ class ImageController extends Controller
   public function storeAttachedToPost(StoreImageRequest $request)
   {
     // return response()->json(["error" => 'test error'], 500);
+    Log::info("ImageController->storeAttachedToPost has started");
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
@@ -89,30 +93,28 @@ class ImageController extends Controller
 
     $postId = null;
     $post = null;
-    $imageFolder = null;
-    $imagePath = "";
+    $imagePath = null;
 
-    if ($request->has('image_folder')) {
-      $imageFolder = $request->string('image_folder');
+    if ($request->has('image_path')) {
+      $imagePath = $request->string('image_path');
     }
 
     if ($request->has('post_id')) {
       $postId = $request->integer('post_id');
       /** @var Post */
-      $post = Post::firstOrFail($postId);
+      $post = Post::firstOrFail('id', $postId);
 
       if ($post->image_path) {
-        if (!$imageFolder) {
-          $imageFolder = $post->image_path;
-        } elseif ($post->image_path !== $imageFolder) {
-          throw new DataConflictException();
+        if (!$imagePath) {
+          $imagePath = $post->image_path;
+        } elseif ($post->image_path != $imagePath) {
+          throw new DataConflictException("The received image_path does not match the one already recorded in the DB");
         }
       }
     }
 
-    if ($imageFolder) {
-      $imagePath = "images/{$imageFolder}";
-      if (!Storage::disk('public')->exists("images/{$imageFolder}")) {
+    if ($imagePath) {
+      if (!Storage::disk('public')->exists($imagePath)) {
         throw new DirectoryNotFoundException("Directory {$imagePath} not found", 404);
       }
     } else {
@@ -127,14 +129,14 @@ class ImageController extends Controller
       }
 
       if ($post && !$post->image_path) {
-        $post->image_path = $imageFolder;
+        $post->image_path = $imagePath;
         if (!$post->save()) {
           $isCleared = Storage::disk('public')->deleteDirectory($imagePath);
           Log::warning("ImageController->storeAttachedToPost():
-            Failed saved in the DB for a new image_folder of Post->#{$post->id}.
+            Failed saving to the DB for a new image_path of Post->#{$post->id}.
             Unregistered directory {$imagePath} has been deleted: " + var_export($isCleared, true));
 
-          throw new FailedRequestDBException("Failed saved in the DB for a new image_folder of Post->#{$post->id}");
+          throw new FailedRequestDBException("Failed saving to the DB for a new image_path of Post->#{$post->id}");
         }
       }
     }
@@ -184,15 +186,15 @@ class ImageController extends Controller
 
     if (!$image) {
       $isCleared = Storage::disk('public')->delete($fullFileName);
-      Log::warning("ImageController->saveUploadedImageFile: Failed registered in DB for image {$fullFileName}.
+      Log::warning("ImageController->saveUploadedImageFile: Failed saving to the DB for image {$fullFileName}.
         Unregistered file has been deleted: " . var_export($isCleared, true));
-      throw new FailedRequestDBException("Failed registered in DB for image {$fullFileName}");
+      throw new FailedRequestDBException("Failed saving to the DB for image {$fullFileName}");
     }
 
     Log::info("ImageController->saveUploadedImageFile: image {$fullFileName} was saved and registered in DB #{$image->id} by {$user->name} #{$user->id}");
     return response()->json([
       'image' => new ImageResource($image),
-      'image_folder' => $imagePath,
+      'image_path' => $imagePath,
     ], 200);
   }
 
@@ -209,7 +211,7 @@ class ImageController extends Controller
     $user = $request->user();
     $image = $user->images()->firstWhere('id', $id);
     if (!$image) {
-      throw new RecordsNotFoundException('Image not found');
+      throw new ModelNotFoundException('Image not found');
     }
     return $this->destroy($image, $id);
   }
@@ -227,7 +229,10 @@ class ImageController extends Controller
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
-    $image = Image::firstOrFail($id);
+    $image = Image::firstWhere('id', $id);
+    if (!$image) {
+      throw new ModelNotFoundException('Image not found');
+    }
 
     return $this->destroy($image, $id);
   }
@@ -257,5 +262,55 @@ class ImageController extends Controller
 
     Log::info("Image #{$id} has been deleted");
     return response()->json("Image #{$id} has been deleted", 200);
+  }
+
+  /**
+   * Allows you to delete images that are not attached to the post
+   * from the created directory and the directory itself.
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
+  public function clearNonAttached(Request $request)
+  {
+    // return response()->json(["error" => 'test error'], 500);
+    // Log::info("ImageController->clearNonAttached has started");
+    $imagePath = $request->string('image_path');
+    if (!$imagePath) {
+      Log::error("ImageController->clearNonAttached: image_path not received.");
+      throw new BadRequestException("Bad request: image_path not received");
+    }
+
+    if (!$request->has('image_counter')) {
+      Log::error("ImageController->clearNonAttached: image_counter not received.");
+      throw new BadRequestException("Bad request: image_counter not received");
+    }
+    $imageCounter = $request->integer('image_counter');
+
+    if (!Storage::disk('public')->exists($imagePath)) {
+      Log::error("ImageController->clearNonAttached: directory {$imagePath} were not found");
+      throw new DirectoryNotFoundException("Directory {$imagePath} not found", 404);
+    }
+
+    if (!Storage::disk('public')->deleteDirectory($imagePath)) {
+      Log::error("ImageController->clearNonAttached: Failed to deleting directory {$imagePath}");
+      throw new FailedDeletingDirectoryException("Failed to deleting directory {$imagePath}");
+    }
+
+    if ($imageCounter) {
+      $images = Image::where("attached_to_post", true)->where("path", $imagePath)->get();
+      if (!$images) {
+        Log::warning("ImageController->clearNonAttached: images from the directory {$imagePath} were not found in the DB");
+        throw new RecordsNotFoundException("images from the directory {$imagePath} were not found in the DB");
+      }
+
+      if (!$images->map->delete()) {
+        Log::error("ImageController->clearNonAttached: Failed deleting DB records of images from directory {$imagePath}");
+        throw new FailedRequestDBException("Failed deleting DB records of images");
+      }
+    }
+
+    Log::info("ImageController->clearNonAttached: Images from directory {$imagePath} have been deleted");
+    return response()->json("Images from directory {$imagePath} have been deleted", 200);
   }
 }

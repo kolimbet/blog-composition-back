@@ -44,15 +44,15 @@ class ImageFactory extends Factory
     if($post) {
       $seederPath = "posts";
       if ($post->image_path) {
-        $targetPath = "images/{$post->image_path}";
+        $targetPath = $post->image_path;
       } else {
-        $post_image_path = null;
+        $post_image_folder = null;
         do {
-          $post_image_path= random_int(1, 999999);
-        } while (Storage::disk('public')->exists("images/{$post_image_path}"));
-        $post->image_path = $post_image_path;
+          $post_image_folder= random_int(1, 999999);
+        } while (Storage::disk('public')->exists("images/{$post_image_folder}"));
+        $post->image_path = "images/{$post_image_folder}";
         $post->save();
-        $targetPath = "images/{$post_image_path}";
+        $targetPath = $post->image_path;
         Storage::disk('public')->makeDirectory($targetPath);
 
       }

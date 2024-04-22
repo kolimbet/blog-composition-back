@@ -6,7 +6,9 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Log;
 use SebastianBergmann\CodeCoverage\Util\DirectoryCouldNotBeCreatedException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\File\Exception\CannotWriteFileException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
@@ -71,12 +73,16 @@ class Handler extends ExceptionHandler
       return $this->customApiResponse($e, '', 403);
     }
 
+    if ($e instanceof BadRequestException) {
+      return $this->customApiResponse($e, $e->getMessage() || 'Bad request', 400);
+    }
+
     // An exception is thrown when the firsrOrFail() and findOrFail() methods fail
     if ($e instanceof ModelNotFoundException) {
       return $this->customApiResponse($e, $e->getMessage() || 'Record not found', 404);
     }
     if ($e instanceof RecordsNotFoundException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Record not found', 404);
+      return $this->customApiResponse($e, $e->getMessage() || 'Records not found', 404);
     }
 
     if ($e instanceof CannotWriteFileException) {
@@ -93,7 +99,9 @@ class Handler extends ExceptionHandler
   private function customApiResponse($exception, $message = "", $statusCode = 0)
   {
     if (!$statusCode) {
-      if (method_exists($exception, 'getStatusCode')) {
+      if (method_exists($exception, 'getCode')) {
+        $statusCode = $exception->getCode();
+      } elseif (method_exists($exception, 'getStatusCode')) {
         $statusCode = $exception->getStatusCode();
       } else {
         $statusCode = 500;
@@ -102,34 +110,34 @@ class Handler extends ExceptionHandler
 
     $response['status'] = $statusCode;
 
-    $response['message'] = $message ? $message : $exception->getMessage();
-    if (!$response['message']) {
+    $response['error'] = $message ? $message : $exception->getMessage();
+    if (!$response['error']) {
       switch ($statusCode) {
         case 401:
-          $response['message'] = 'Unauthorized';
+          $response['error'] = 'Unauthorized';
           break;
         case 403:
-          $response['message'] = 'Forbidden';
+          $response['error'] = 'Forbidden';
           break;
         case 404:
-          $response['message'] = 'Not Found';
+          $response['error'] = 'Not Found';
           break;
         case 405:
-          $response['message'] = 'Method Not Allowed';
+          $response['error'] = 'Method Not Allowed';
           break;
         case 422:
-          $response['message'] = $exception->original['message'];
+          $response['error'] = $exception->original['message'];
           $response['errors'] = $exception->original['errors'];
           break;
         default:
-          $response['message'] = ($statusCode == 500) ? 'Whoops, looks like something went wrong' : $exception->getMessage();
+          $response['error'] = ($statusCode == 500) ? 'Whoops, looks like something went wrong' : $exception->getMessage();
           break;
       }
     }
 
+    // Log::info("customApiResponse: ", [$response, $exception->getMessage(), $exception->getCode()]);
     if (config('app.debug')) {
       $response['trace'] = $exception->getTrace();
-      $response['code'] = $exception->getCode();
     }
 
     return response()->json($response, $statusCode);
