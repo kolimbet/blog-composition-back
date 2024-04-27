@@ -2,16 +2,22 @@
 
 namespace App\Exceptions;
 
+use Exception;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Validation\ValidationException;
 use Log;
 use SebastianBergmann\CodeCoverage\Util\DirectoryCouldNotBeCreatedException;
+use Str;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\File\Exception\CannotWriteFileException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
+
+use function PHPSTORM_META\type;
 
 class Handler extends ExceptionHandler
 {
@@ -74,72 +80,150 @@ class Handler extends ExceptionHandler
     }
 
     if ($e instanceof BadRequestException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Bad request', 400);
+      return $this->customApiResponse($e, $this->getErrorMessage($e, 'Bad request'), 400);
     }
 
-    // An exception is thrown when the firsrOrFail() and findOrFail() methods fail
     if ($e instanceof ModelNotFoundException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Record not found', 404);
+      return $this->customApiResponse($e, $this->getErrorMessage($e, 'Record not found'), 404);
     }
     if ($e instanceof RecordsNotFoundException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Records not found', 404);
+      return $this->customApiResponse($e, $this->getErrorMessage($e, 'Records not found'), 404);
     }
 
     if ($e instanceof CannotWriteFileException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Failed to write the file', 500);
+      return $this->customApiResponse($e, $this->getErrorMessage($e, 'Failed to write the file'), 500);
     }
     if ($e instanceof DirectoryCouldNotBeCreatedException) {
-      return $this->customApiResponse($e, $e->getMessage() || 'Failed to create a directory', 500);
+      return $this->customApiResponse($e, $this->getErrorMessage($e, 'Failed to create a directory'), 500);
     }
 
+    if ($e instanceof ValidationException) {
+      return $this->customApiResponse($e, $this->getValidationErrorMessage($e, 'Invalid argument value'), 422);
+    }
 
     return $this->customApiResponse($e);
   }
 
+  /**
+   * Creates an exception response
+   *
+   * @param Throwable|Exception|ValidationException|HttpException $exception
+   * @param string $message
+   * @param integer $statusCode
+   * @return \Illuminate\Http\Response
+   */
   private function customApiResponse($exception, $message = "", $statusCode = 0)
   {
+    // Log::info("Handler->customApiResponse()", [$message, $statusCode, $exception]);
     if (!$statusCode) {
-      if (method_exists($exception, 'getCode')) {
-        $statusCode = $exception->getCode();
-      } elseif (method_exists($exception, 'getStatusCode')) {
-        $statusCode = $exception->getStatusCode();
-      } else {
-        $statusCode = 500;
-      }
+      $statusCode = $this->getStatusCode($exception);
     }
-
     $response['status'] = $statusCode;
 
-    $response['error'] = $message ? $message : $exception->getMessage();
-    if (!$response['error']) {
-      switch ($statusCode) {
-        case 401:
-          $response['error'] = 'Unauthorized';
-          break;
-        case 403:
-          $response['error'] = 'Forbidden';
-          break;
-        case 404:
-          $response['error'] = 'Not Found';
-          break;
-        case 405:
-          $response['error'] = 'Method Not Allowed';
-          break;
-        case 422:
-          $response['error'] = $exception->original['message'];
-          $response['errors'] = $exception->original['errors'];
-          break;
-        default:
-          $response['error'] = ($statusCode == 500) ? 'Whoops, looks like something went wrong' : $exception->getMessage();
-          break;
-      }
+    if ($message && gettype($message) === 'string' && strlen($message)) {
+      $response['error'] = $message;
+    } else {
+      $response['error'] = $this->getErrorMessage($exception);
     }
 
-    // Log::info("customApiResponse: ", [$response, $exception->getMessage(), $exception->getCode()]);
+    if (!$response['error']) {
+      $response['error'] = $this->generateMessageByCode($statusCode);
+    }
+
+    Log::info("customApiResponse: ", [$response]);
     if (config('app.debug')) {
       $response['trace'] = $exception->getTrace();
     }
 
     return response()->json($response, $statusCode);
+  }
+
+  /**
+   * Get Exception status code
+   *
+   * @param Throwable|Exception|ValidationException|HttpException $exception
+   * @param integer $defaultCode
+   * @return integer
+   */
+  private function getStatusCode($exception, $defaultCode = 500)
+  {
+    if (property_exists($exception, 'status') && $this->checkStatus($exception->status)) {
+      return $exception->status;
+    }
+    if (method_exists($exception, 'getCode') && $this->checkStatus($exception->getCode())) {
+      return $exception->getCode();
+    }
+    if (method_exists($exception, 'getStatusCode') && $this->checkStatus($exception->getStatusCode())) {
+      return $exception->getStatusCode();
+    }
+
+    return $defaultCode;
+  }
+
+  /**
+   * Checks the correctness of the exception status code
+   *
+   * @param integer $status
+   * @return bool
+   */
+  private function checkStatus($status)
+  {
+    if ($status && is_numeric($status) && $status >= 200 && $status <= 600) return true;
+    else return false;
+  }
+
+  /**
+   * Get exception message
+   *
+   * @param Throwable|Exception|ValidationException|HttpException $exception
+   * @param string $defaultMessage
+   * @return string
+   */
+  private function getErrorMessage($exception,  $defaultMessage = '') {
+    $message = $exception->getMessage();
+    if ($message && gettype($message) === 'string' && strlen($message)) {
+      return $message;
+    }
+    return $defaultMessage;
+  }
+
+  /**
+   * Get ValidationException first error message
+   *
+   * @param Throwable|Exception|ValidationException|HttpException $exception
+   * @param string $defaultMessage
+   * @return string
+   */
+  private function getValidationErrorMessage($exception, $defaultMessage = 'Invalid argument value') {
+    if (method_exists($exception, 'errors')) {
+      $errors = $exception->errors();
+      if ($errors && reset($errors)) {
+        return reset($errors)[0];
+      }
+    }
+    return $defaultMessage;
+  }
+
+  /**
+   * Generates an error message based on the status code
+   *
+   * @param integer $statusCode
+   * @return string
+   */
+  private function generateMessageByCode($statusCode) {
+    switch ($statusCode) {
+        case 401:
+          return 'Unauthorized';
+        case 403:
+          return  'Forbidden';
+        case 404:
+          return 'Not Found';
+        case 405:
+          return 'Method Not Allowed';
+        case 422:
+          return 'Invalid argument value';
+        default:
+          return 'Whoops, looks like something went wrong';
+      }
   }
 }
