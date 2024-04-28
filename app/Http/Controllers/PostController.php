@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\DataConflictException;
+use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
 use App\Models\Image;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Http\Request;
 use Log;
+use Nette\DirectoryNotFoundException;
+use Storage;
 use Str;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -106,8 +109,8 @@ class PostController extends Controller
     }
 
     if ($post->image_path && $imageCounter) {
-      try{
-         $images = Image::where("attached_to_post", true)->where("path", $post->image_path)->get();
+      try {
+        $images = Image::where("attached_to_post", true)->where("path", $post->image_path)->get();
         if (!$images) {
           Log::warning("ImageController->store: images from the directory {$post->image_path} were not found in the DB");
           throw new RecordsNotFoundException("images from the directory {$post->image_path} were not found in the DB");
@@ -120,7 +123,7 @@ class PostController extends Controller
           $image->post_id = $post->id;
           $image->save();
         }
-      } catch(Exception $e) {
+      } catch (Exception $e) {
         $clearPost = $post->delete();
         Log::error("ImageController->store: Failed to attach images to the created post. Clear an incorrect post: " + var_export($clearPost, true));
         throw $e;
@@ -130,6 +133,13 @@ class PostController extends Controller
     return response()->json($post->id, 200);
   }
 
+  /**
+   * Updates the post
+   *
+   * @param Request $request
+   * @param Post $post
+   * @return \Illuminate\Http\Response
+   */
   public function update(Request $request, Post $post)
   {
     // return response()->json(["error" => "Test error"], 500);
@@ -155,5 +165,49 @@ class PostController extends Controller
     Log::info("PostController->update: post #{$post->id} updated successfully");
     $images = $post->images()->get();
     return response()->json(['post' => $post, 'images' => $images ? ImageResource::collection($images) : []], 200);
+  }
+
+  /**
+   * Deletes a post and its associated images
+   *
+   * @param Request $request
+   * @param Post $post
+   * @return \Illuminate\Http\Response
+   */
+  public function destroy(Request $request, Post $post)
+  {
+    // return response()->json(["error" => "Test error"], 500);
+    $user = $request->user();
+    if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
+
+    if ($post->image_path) {
+      $images = $post->images;
+      // Log::info("PostController->destroy({$post->id})", [$images, $images->count()]);
+
+      if ($images && $images->count()) {
+        if (!$images->map->delete()) {
+          Log::error("PostController->destroy({$post->id}): Failed deleting DB records of images from directory {$post->image_path}");
+          throw new FailedRequestDBException("Failed deleting DB records of of images from directory {$post->image_path}");
+        }
+      }
+
+      if (!Storage::disk('public')->exists($post->image_path)) {
+        Log::error("PostController->destroy({$post->id}): directory {$post->image_path} were not found");
+        // throw new DirectoryNotFoundException("Directory {$post->image_path} not found", 404);
+      } else {
+        if (!Storage::disk('public')->deleteDirectory($post->image_path)) {
+          Log::error("PostController->destroy({$post->id}): Failed to deleting directory {$post->image_path}");
+          throw new FailedDeletingDirectoryException("Failed to deleting directory {$post->image_path}");
+        }
+      }
+    }
+
+    if (!$post->delete()) {
+      Log::error("PostController->destroy({$post->id}): Failed deleting DB record of post");
+      throw new FailedRequestDBException("Failed deleting DB records of post #{$post->id}");
+    }
+
+    Log::info("Post #{$post->id} was deleted by the {$user->name} #{$user->id}");
+    return response()->json(["Post #{$post->id} has been successfully deleted"], 200);
   }
 }

@@ -42,10 +42,11 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::middleware('is.admin')->group(function () {
     Route::get('/admin/posts', [PostController::class, 'listForAdmin']);
     Route::get('/admin/posts/{slug}', [PostController::class, 'showForAdmin']);
-    Route::post('/admin/posts/{post}', [PostController::class, 'update']);
     Route::post('/admin/posts', [PostController::class, 'store']);
+    Route::post('/admin/posts/{post}', [PostController::class, 'update']);
+    Route::delete('/admin/posts/{post}', [PostController::class, 'destroy']);
 
-    Route::get('/images/post/{postId}', [ImageController::class, 'listForPost']);
+    Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
     Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
     Route::delete('/images/{id}', [ImageController::class, 'destroyImage']);
   });

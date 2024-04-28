@@ -48,7 +48,11 @@ class ImageController extends Controller
   public function listForPost(Request $request, Post $post)
   {
     // return response()->json(["error" => 'test error'], 500);
-    $images = $post->images()->get();
+    $user = $request->user();
+    if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
+
+    $images = $post->images;
+    // Log::info("ImageController->listForPost", [$post->id, $images]);
     return response()->json(ImageResource::collection($images), 200);
   }
 

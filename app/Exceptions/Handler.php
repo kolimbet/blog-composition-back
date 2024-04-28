@@ -10,14 +10,11 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Validation\ValidationException;
 use Log;
 use SebastianBergmann\CodeCoverage\Util\DirectoryCouldNotBeCreatedException;
-use Str;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\File\Exception\CannotWriteFileException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
-
-use function PHPSTORM_META\type;
 
 class Handler extends ExceptionHandler
 {
@@ -130,7 +127,7 @@ class Handler extends ExceptionHandler
       $response['error'] = $this->generateMessageByCode($statusCode);
     }
 
-    Log::info("customApiResponse: ", [$response]);
+    Log::info("Handler->customApiResponse: ", [$response]);
     if (config('app.debug')) {
       $response['trace'] = $exception->getTrace();
     }
