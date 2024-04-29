@@ -14,15 +14,8 @@ class ImageResource extends JsonResource
    */
   public function toArray($request)
   {
-    return [
-      'id' => $this->id,
-      'user_id' => $this->user_id,
-      'attached_to_post' => $this->attached_to_post,
-      'post_id' => $this->post_id,
-      'path' => $this->path,
-      'name' => $this->name,
-      'mime_type' => $this->mime_type,
-      'full_url' => config('app.url') . "/storage/{$this->path}/{$this->name}",
-    ];
+    $result = parent::toArray($request);
+    $result['full_url'] = config('app.url') . "/storage/{$this->path}/{$this->name}";
+    return $result;
   }
 }

@@ -6,6 +6,7 @@ use App\Exceptions\DataConflictException;
 use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
+use App\Http\Resources\PostResource;
 use App\Models\Image;
 use App\Models\Post;
 use Exception;
@@ -47,7 +48,7 @@ class PostController extends Controller
     if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
     if (!$post) $post = Post::whereSlug($slug)->first();
     if (!$post) {
-      throw new ModelNotFoundException();
+      throw new ModelNotFoundException("Post was not found");
     }
 
     $user = $request->user();
@@ -55,8 +56,7 @@ class PostController extends Controller
       throw new AccessDeniedHttpException('Access denied');
     }
 
-    // A resource is needed
-    return response()->json($post, 200);
+    return response()->json(new PostResource($post), 200);
   }
 
   public function showForAdmin(Request $request, $slug)
@@ -73,7 +73,7 @@ class PostController extends Controller
     }
 
     $images = $post->images()->get();
-    return response()->json(['post' => $post, 'images' => $images ? ImageResource::collection($images) : []], 200);
+    return response()->json(['post' => new PostResource($post), 'images' => $images ? ImageResource::collection($images) : []], 200);
   }
 
   public function store(Request $request)
