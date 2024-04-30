@@ -6,6 +6,7 @@ use App\Exceptions\DataConflictException;
 use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
+use App\Http\Resources\PostPaginatedCollection;
 use App\Http\Resources\PostResource;
 use App\Models\Image;
 use App\Models\Post;
@@ -28,7 +29,7 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
-    return response()->json($postList, 200);
+    return response()->json(new PostPaginatedCollection($postList), 200);
   }
 
   public function listForAdmin(Request $request)
@@ -38,7 +39,7 @@ class PostController extends Controller
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
     $postList = Post::orderBy('id', 'desc')->paginate($this->pageLimit)->withPath('');
-    return response()->json($postList, 200);
+    return response()->json(new PostPaginatedCollection($postList), 200);
   }
 
   public function show(Request $request, $slug)
