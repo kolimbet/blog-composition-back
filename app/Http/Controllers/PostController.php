@@ -23,8 +23,19 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class PostController extends Controller
 {
+  /**
+   * The number of records displayed on the page
+   *
+   * @var integer
+   */
   protected $pageLimit = 10;
 
+  /**
+   * Returns a paginated list of posts for the feed
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
   public function feed(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
@@ -32,6 +43,12 @@ class PostController extends Controller
     return response()->json(new PostPaginatedCollection($postList), 200);
   }
 
+  /**
+   * Returns a paginated list of posts to display in the admin panel
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
   public function listForAdmin(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
@@ -42,6 +59,13 @@ class PostController extends Controller
     return response()->json(new PostPaginatedCollection($postList), 200);
   }
 
+  /**
+   * Returns the post data for output to the user
+   *
+   * @param Request $request
+   * @param string $slug
+   * @return \Illuminate\Http\Response
+   */
   public function show(Request $request, $slug)
   {
     // return response()->json(["error" => "Test error"], 500);
@@ -60,6 +84,13 @@ class PostController extends Controller
     return response()->json(new PostResource($post), 200);
   }
 
+  /**
+   * Returns the post data for editing in the admin panel
+   *
+   * @param Request $request
+   * @param string $slug
+   * @return \Illuminate\Http\Response
+   */
   public function showForAdmin(Request $request, $slug)
   {
     // return response()->json(["error" => 'test error'], 500);
@@ -77,6 +108,12 @@ class PostController extends Controller
     return response()->json(['post' => new PostResource($post), 'images' => $images ? ImageResource::collection($images) : []], 200);
   }
 
+  /**
+   * Saves a new post
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
   public function store(Request $request)
   {
     // return response()->json(["error" => 'test error'], 500);
@@ -131,6 +168,7 @@ class PostController extends Controller
       }
     }
 
+    Log::info("Post #{$post->id} has been created by user #{$user->id}");
     return response()->json($post->id, 200);
   }
 
@@ -203,12 +241,19 @@ class PostController extends Controller
       }
     }
 
+    if ($post->tags_count) {
+      if (!$post->tags()->detach()) {
+        Log::error("PostController->destroy({$post->id}): Failed deleting entries about related tags of post");
+        throw new FailedRequestDBException("Failed deleting entries about related tags of post #{$post->id}");
+      }
+    }
+
     if (!$post->delete()) {
       Log::error("PostController->destroy({$post->id}): Failed deleting DB record of post");
       throw new FailedRequestDBException("Failed deleting DB records of post #{$post->id}");
     }
 
-    Log::info("Post #{$post->id} was deleted by the {$user->name} #{$user->id}");
+    Log::info("Post #{$post->id} has been deleted by the {$user->name} #{$user->id}");
     return response()->json(["Post #{$post->id} has been successfully deleted"], 200);
   }
 }

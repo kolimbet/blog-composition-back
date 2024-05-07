@@ -49,6 +49,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/images/post/{post}', [ImageController::class, 'listForPost']);
     Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
     Route::delete('/images/{id}', [ImageController::class, 'destroyImage']);
+
+    Route::get('/admin/tags', 'TagController@list');
+    Route::post('/admin/tags/check-name', 'TagController@checkNameIsFree');
+    Route::post('/admin/tags', 'TagController@store');
+    Route::post('/admin/tags/{tag}', 'TagController@update');
+    Route::delete('/admin/tags/{tag}', 'TagController@destroy');
   });
 });
 
