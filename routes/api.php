@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\TagController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -50,11 +51,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/images', [ImageController::class, 'storeAttachedToPost']);
     Route::delete('/images/{id}', [ImageController::class, 'destroyImage']);
 
-    Route::get('/admin/tags', 'TagController@list');
-    Route::post('/admin/tags/check-name', 'TagController@checkNameIsFree');
-    Route::post('/admin/tags', 'TagController@store');
-    Route::post('/admin/tags/{tag}', 'TagController@update');
-    Route::delete('/admin/tags/{tag}', 'TagController@destroy');
+    Route::get('/admin/tags', [TagController::class, 'list']);
+    Route::post('/admin/tags/check-name', [TagController::class, 'checkNameIsFree']);
+    Route::post('/admin/tags', [TagController::class, 'store']);
+    Route::post('/admin/tags/{tag}', [TagController::class, 'update']);
+    Route::delete('/admin/tags/{tag}', [TagController::class, 'destroy']);
   });
 });
 

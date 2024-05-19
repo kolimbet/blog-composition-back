@@ -4,15 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Requests\TagRequest;
-use App\Http\Resources\TagPaginatedCollection;
 use App\Http\Resources\TagResource;
 use App\Models\Tag;
+use App\Other\ValidationResult;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Log;
 use Response;
 use Str;
-use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class TagController extends Controller
@@ -35,8 +33,8 @@ class TagController extends Controller
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
-    $tagList = Tag::orderBy('id', 'desc')->paginate($this->pageLimit)->withPath('');
-    return response()->json(new TagPaginatedCollection($tagList), 200);
+    $tagList = Tag::orderBy('id', 'desc')->get();
+    return response()->json(TagResource::collection($tagList), 200);
   }
 
   /**
@@ -47,6 +45,7 @@ class TagController extends Controller
    */
   public function checkNameIsFree(TagRequest $request)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $newTagData['name'] = $request->string('name')->trim();
     $newTagData['slug'] = Str::slug($newTagData['name']);
     $tagId = null;
@@ -54,9 +53,8 @@ class TagController extends Controller
       $tagId = $request->integer('tag_id');
     }
 
-    $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug'], $tagId);
-
-    return response()->json(true, 200);
+    $checkResult = $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug'], $tagId);
+    return $checkResult->getResponse();
   }
 
   /**
@@ -67,6 +65,7 @@ class TagController extends Controller
    */
   public function store(TagRequest $request)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
@@ -74,7 +73,11 @@ class TagController extends Controller
     $newTagData['slug'] = Str::slug($newTagData['name']);
     $newTagData['name_low_case'] = Str::lower($newTagData['name']);
 
-    $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug']);
+    $checkResult = $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug']);
+    if ($checkResult->isError()) {
+      return $checkResult->getResponse();
+    }
+
     $tag = Tag::create($newTagData);
     if (!$tag) {
       Log::warning("TagController->store: Failed saving to the DB.");
@@ -94,6 +97,7 @@ class TagController extends Controller
    */
   public function update(TagRequest $request, Tag $tag)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
@@ -105,7 +109,11 @@ class TagController extends Controller
       return response()->json(new TagResource($tag), 200);
     }
 
-    $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug']);
+    $checkResult = $this->checkNameAndSlugUniqueness($newTagData['name'], $newTagData['slug']);
+    if ($checkResult->isError()) {
+      return $checkResult->getResponse();
+    }
+
     $isUpdated = $tag->update($newTagData);
     if (!$isUpdated) {
       Log::warning("TagController->update: Failed saving to the DB.");
@@ -122,26 +130,31 @@ class TagController extends Controller
    * @param string $name
    * @param string $slug
    * @param integer|null $tagId
-   * @return void
+   * @return ValidationResult
    */
   private function checkNameAndSlugUniqueness($name, $slug, $tagId = null)
   {
+    $result = new ValidationResult();
+
     if ($tagId) {
       $tag = Tag::where('id', '<>', $tagId)->where(function ($query) use ($name, $slug) {
         $query->where('name', $name)->orWhere('slug', $slug);
-      });
+      })->first();
     } else {
       $tag = Tag::where('name', $name)->orWhere('slug', $slug)->first();
     }
 
+    // Log::info("TagController->checkNameAndSlugUniqueness()", [$tag, $name, $name, $tagId]);
     if ($tag) {
-      if ($tag->name === $name) {
-        throw new ValidationException('This name is already in use');
+      if ($tag->name == $name) {
+        return $result->setError('This name is already in use');
       }
-      if ($tag->slug === $slug) {
-        throw new ValidationException('This slug is already in use');
+      if ($tag->slug == $slug) {
+        return $result->setError('This slug is already in use');
       }
     }
+
+    return $result;
   }
 
   /**

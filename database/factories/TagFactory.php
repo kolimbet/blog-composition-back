@@ -21,6 +21,7 @@ class TagFactory extends Factory
     return [
       'name' => $name,
       'slug' => Str::slug($name, '-'),
+      'name_low_case' => Str::lower($name),
     ];
   }
 }

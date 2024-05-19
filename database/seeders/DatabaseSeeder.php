@@ -49,10 +49,10 @@ class DatabaseSeeder extends Seeder
       'email' => 'user3@mail.ru',
     ]);
 
-    // $tags = Tag::factory(15)->create();
+    $tags = Tag::factory(15)->create();
     $posts = Post::factory(100)->create();
     foreach ($posts as $post) {
-      // $post->tags()->attach($tags->random(random_int(1, 5)));
+      $post->tags()->attach($tags->random(random_int(1, 5)));
       // $post->comments()->saveMany(Comment::factory(random_int(0, 10))->create());
       // if (random_int(0, 9)) {
       //   $mainImage = Image::factory()->postImage($post->user()->getResults(), $post)->create();
