@@ -8,12 +8,17 @@ use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
 use App\Http\Resources\PostPaginatedCollection;
 use App\Http\Resources\PostResource;
+use App\Http\Resources\TagResource;
 use App\Models\Image;
 use App\Models\Post;
+use App\Models\Tag;
+use Error;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Log;
 use Nette\DirectoryNotFoundException;
 use Storage;
@@ -97,6 +102,9 @@ class PostController extends Controller
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
+    /**
+     * @var Post|null
+     */
     $post = null;
     if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
     if (!$post) $post = Post::whereSlug($slug)->first();
@@ -104,8 +112,13 @@ class PostController extends Controller
       throw new ModelNotFoundException();
     }
 
-    $images = $post->images()->get();
-    return response()->json(['post' => new PostResource($post), 'images' => $images ? ImageResource::collection($images) : []], 200);
+    $images = $post->images;
+    $tags = $post->tags;
+    return response()->json([
+      'post' => new PostResource($post),
+      'tags' => $tags ? TagResource::collection($tags) : [],
+      'images' => $images ? ImageResource::collection($images) : []
+    ], 200);
   }
 
   /**
@@ -126,6 +139,12 @@ class PostController extends Controller
     }
     $imageCounter = $request->integer('image_counter');
 
+    if (!$request->has('tags')) {
+      Log::error("PostController->store: tags not received.");
+      throw new BadRequestException("Bad request: tags not received");
+    }
+    $receivedTags = json_decode($request->input('tags'), true);
+
     $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
     if (!$postData['slug']) {
       $postData['slug'] = Str::slug($postData['title'], '-');
@@ -136,6 +155,8 @@ class PostController extends Controller
     }
 
     $postData['user_id'] = $user->id;
+
+    DB::beginTransaction();
     /**
      * @var Post $post
      */
@@ -143,14 +164,43 @@ class PostController extends Controller
 
     if (!$post) {
       Log::warning("PostController->store: Failed saving to the DB.");
+      DB::rollBack();
       throw new FailedRequestDBException("Failed saving to the DB");
+    }
+
+    if ($receivedTags && count($receivedTags)) {
+      $receivedTagsIds = [];
+      $attachedTags = null;
+      $attachedTagsNamesStr = "";
+
+      try {
+        foreach ($receivedTags as $tagItem) {
+          $receivedTagsIds[] = $tagItem['id'];
+        }
+
+        /**
+         * @var Collection<Tag>
+         */
+        $attachedTags = Tag::whereIn('id', $receivedTagsIds)->get();
+        $attachedTagsNamesStr = $attachedTags->reduce(function ($accumulator, $tagItem) {
+          return $accumulator ? $accumulator . ', ' . $tagItem->name : $tagItem->name;
+        }, $attachedTagsNamesStr);
+        if ($attachedTags && $attachedTags->count()) {
+          $post->tags()->attach($attachedTags);
+          Log::info("PostController->store: tags [{$attachedTagsNamesStr}] has been attached to post #{$post->id}");
+        }
+      } catch (Exception $e) {
+        Log::error("PostController->store: Failed to attach tags to the created post", [$receivedTagsIds, count($attachedTags), $attachedTags->count()]);
+        DB::rollBack();
+        throw $e;
+      }
     }
 
     if ($post->image_path && $imageCounter) {
       try {
         $images = Image::where("attached_to_post", true)->where("path", $post->image_path)->get();
         if (!$images) {
-          Log::warning("ImageController->store: images from the directory {$post->image_path} were not found in the DB");
+          Log::warning("PostController->store: images from the directory {$post->image_path} were not found in the DB");
           throw new RecordsNotFoundException("images from the directory {$post->image_path} were not found in the DB");
         }
 
@@ -161,13 +211,15 @@ class PostController extends Controller
           $image->post_id = $post->id;
           $image->save();
         }
+        // throw new Exception("PostController->store: test error for post #{$post->id}", 500);
       } catch (Exception $e) {
-        $clearPost = $post->delete();
-        Log::error("ImageController->store: Failed to attach images to the created post. Clear an incorrect post: " + var_export($clearPost, true));
+        Log::error("PostController->store: Failed to attach images to the created post");
+        DB::rollBack();
         throw $e;
       }
     }
 
+    DB::commit();
     Log::info("Post #{$post->id} has been created by user #{$user->id}");
     return response()->json($post->id, 200);
   }
@@ -185,7 +237,11 @@ class PostController extends Controller
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
-    $postData['user_id'] = $user->id;
+    if (!$request->has('tags')) {
+      Log::error("PostController->store: tags not received.");
+      throw new BadRequestException("Bad request: tags not received");
+    }
+    $receivedTags = json_decode($request->input('tags'), true);
 
     $postData = $request->only('title', 'slug', 'excerpt_raw', 'excerpt_html', 'content_raw', 'content_html', 'is_published', 'image_path');
     if (!$postData['slug']) {
@@ -196,14 +252,90 @@ class PostController extends Controller
       return response()->json(['error' => 'This Slug is already being used by another post'], 400);
     }
 
+    DB::beginTransaction();
+
+    $receivedTagsIds = [];
+    $newTags = null;
+    /**
+     * @var Collection<Tag>
+     */
+    $oldTags = $post->tags;
+
+    $attachedTags = null;
+    $attachedTagsNamesList = [];
+    $detachedTags = null;
+    $detachedTagsNamesList = [];
+
+    if ($receivedTags && count($receivedTags)) {
+      foreach ($receivedTags as $tagItem) {
+        $receivedTagsIds[] = $tagItem['id'];
+      }
+      /**
+       * @var Collection<Tag>
+       */
+      $newTags = Tag::whereIn('id', $receivedTagsIds)->get();
+    }
+
+    try {
+      if ($newTags && $newTags->count()) {
+        if ($oldTags && $oldTags->count()) {
+          $attachedTags = $newTags->diff($oldTags);
+          $detachedTags = $oldTags->diff($newTags);
+        } else {
+          $attachedTags = $newTags;
+        }
+      } else {
+        if ($oldTags && $oldTags->count()) {
+          $detachedTags = $oldTags;
+        }
+      }
+
+      if ($attachedTags) {
+        $attachedTagsNamesList = $attachedTags->reduce(function ($accumulator, $tagItem) {
+          $accumulator[] = $tagItem->name;
+          return $accumulator;
+        }, $attachedTagsNamesList);
+        $post->tags()->attach($attachedTags);
+
+        if (count($attachedTagsNamesList)) {
+          $attachedTagsNamesStr = join(', ', $attachedTagsNamesList);
+          Log::info("PostController->update: tags [{$attachedTagsNamesStr}] has been attached to post #{$post->id}");
+        }
+      }
+
+      if ($detachedTags) {
+        $detachedTagsNamesList = $detachedTags->reduce(function ($accumulator, $tagItem) {
+          $accumulator[] = $tagItem->name;
+          return $accumulator;
+        }, $detachedTagsNamesList);
+        $post->tags()->detach($detachedTags);
+
+        if (count($detachedTagsNamesList)) {
+          $detachedTagsNamesStr = join(', ', $detachedTagsNamesList);
+          Log::info("PostController->update: tags [{$detachedTagsNamesStr}] has been detached to post #{$post->id}");
+        }
+      }
+    } catch (Exception $e) {
+      Log::error("PostController->update: Failed to attach tags to the post #{$post->id}");
+      DB::rollBack();
+      throw $e;
+    }
+
     if (!$post->update($postData)) {
       Log::warning("PostController->update: Failed to update post #{$post->id} to the DB");
+      DB::rollBack();
       throw new FailedRequestDBException("Failed to update post #{$post->id} to the DB");
     }
 
+    DB::commit();
     Log::info("PostController->update: post #{$post->id} updated successfully");
-    $images = $post->images()->get();
-    return response()->json(['post' => $post, 'images' => $images ? ImageResource::collection($images) : []], 200);
+    $images = $post->images;
+    $tags = $post->tags()->get();
+    return response()->json([
+      'post' => $post,
+      'tags' => $tags ? TagResource::collection($tags) : [],
+      'images' => $images ? ImageResource::collection($images) : []
+    ], 200);
   }
 
   /**
