@@ -24,4 +24,17 @@ class TagFactory extends Factory
       'name_low_case' => Str::lower($name),
     ];
   }
+
+  /**
+   * Generate Tag by name
+   */
+  public function generateByName($name) {
+    return $this->state(function () use ($name) {
+      return [
+      'name' => $name,
+      'slug' => Str::slug($name, '-'),
+      'name_low_case' => Str::lower($name),
+      ];
+    });
+  }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\DataConflictException;
 use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
@@ -12,7 +11,6 @@ use App\Http\Resources\TagResource;
 use App\Models\Image;
 use App\Models\Post;
 use App\Models\Tag;
-use Error;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -45,7 +43,30 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
-    return response()->json(new PostPaginatedCollection($postList), 200);
+    return response()->json([
+      'posts' => new PostPaginatedCollection($postList)
+    ], 200);
+  }
+
+  /**
+   * Returns a paginated list of posts by Tag
+   *
+   * @param Request $request
+   * @param string $tagSlug
+   * @return \Illuminate\Http\Response
+   */
+  public function listByTag(Request $request, $tagSlug)
+  {
+    $tag = Tag::whereSlug($tagSlug)->first();
+    if (!$tag) {
+      throw new ModelNotFoundException("Tag was not found");
+    }
+
+    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
+    return response()->json([
+      'tag' => new TagResource($tag),
+      'posts' => new PostPaginatedCollection($postList),
+    ], 200);
   }
 
   /**
@@ -75,8 +96,8 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
-    if (!$post) $post = Post::whereSlug($slug)->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('tags')->first();
+    if (!$post) $post = Post::whereSlug($slug)->with('tags')->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }
@@ -106,17 +127,15 @@ class PostController extends Controller
      * @var Post|null
      */
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->first();
-    if (!$post) $post = Post::whereSlug($slug)->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('tags')->with('images')->first();
+    if (!$post) $post = Post::whereSlug($slug)->with('tags')->with('images')->first();
     if (!$post) {
-      throw new ModelNotFoundException();
+      throw new ModelNotFoundException("Post was not found");
     }
 
     $images = $post->images;
-    $tags = $post->tags;
     return response()->json([
       'post' => new PostResource($post),
-      'tags' => $tags ? TagResource::collection($tags) : [],
       'images' => $images ? ImageResource::collection($images) : []
     ], 200);
   }

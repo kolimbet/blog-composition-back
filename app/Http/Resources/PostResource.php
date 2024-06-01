@@ -16,6 +16,7 @@ class PostResource extends JsonResource
     {
       $result = parent::toArray($request);
       $result['author'] = new UserResource($this->user);
+      $result['tags'] = TagResource::collection($this->tags);
       return $result;
     }
 }

@@ -23,6 +23,7 @@ Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 
 Route::get('/posts', [PostController::class, 'feed']);
+Route::get('/posts/by-tag/{tagSlug}', [PostController::class, 'listByTag']);
 Route::get('/posts/{slug}', [PostController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {

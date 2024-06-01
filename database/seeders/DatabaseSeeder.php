@@ -9,7 +9,9 @@ use App\Models\Image;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
+use Log;
 
 class DatabaseSeeder extends Seeder
 {
@@ -49,7 +51,25 @@ class DatabaseSeeder extends Seeder
       'email' => 'user3@mail.ru',
     ]);
 
-    $tags = Tag::factory(15)->create();
+    $tagsList = [
+      'PHP', 'JS', 'functions', 'libraries', 'Namespaces', 'OOP',
+      'Classes', 'Inheritance','Traits', 'Interfaces', 'Sessions',
+      'Laravel', 'Symfony', 'Models', 'MVC',
+      'Databases', 'PDO', 'Eloquent', 'Doctrine', 'SQL', 'MySQL', 'PostgreSQL',
+      'VueJS', 'Angular', 'React', 'Lodash', 'Axios',
+      'Vue-Router', 'Vuex', 'Vuelidate', 'Composition API', 'Options API', 'Components',
+      'HTML', 'CSS', 'SCSS', 'Bootstrap', 'Tailwind',
+      'http', 'https', 'www', 'server', 'system administration', 'Apache', 'Nginx',
+      'API', 'Authorization', 'Tokens', 'Laravel Sanctum', 'WebSocket'
+    ];
+    /**
+     * @var Collection<Tag>
+     */
+    $tags =  new Collection();
+    foreach ($tagsList as $tagName) {
+      $tags->push(Tag::factory()->generateByName($tagName)->createOne()) ;
+    }
+
     $posts = Post::factory(100)->create();
     foreach ($posts as $post) {
       $post->tags()->attach($tags->random(random_int(1, 5)));
