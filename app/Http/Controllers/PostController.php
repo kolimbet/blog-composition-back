@@ -134,8 +134,10 @@ class PostController extends Controller
     }
 
     $images = $post->images;
+    $tags = $post->tags;
     return response()->json([
-      'post' => new PostResource($post),
+      'post' => $post,
+      'tags' => $tags ? TagResource::collection($tags) : [],
       'images' => $images ? ImageResource::collection($images) : []
     ], 200);
   }
