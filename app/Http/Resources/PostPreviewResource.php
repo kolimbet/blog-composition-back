@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class PostResource extends JsonResource
+class PostPreviewResource extends JsonResource
 {
   /**
    * Transform the resource into an array.
@@ -16,7 +16,6 @@ class PostResource extends JsonResource
   {
     $result = parent::toArray($request);
     $result['author'] = new UserResource($this->user);
-    $result['tags'] = TagResource::collection($this->tags);
     $likes = $this->likes;
     $result['likes'] = $likes && $likes->count() ? $likes : [];
     return $result;

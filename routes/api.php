@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ImageController;
+use App\Http\Controllers\LikeController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\UserController;
@@ -40,6 +41,9 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/avatars', [ImageController::class, 'listOfAvatars']);
   Route::post('/avatars', [ImageController::class, 'storeAvatar']);
   Route::delete('/avatars/{id}', [ImageController::class, 'destroyAvatar']);
+
+  Route::get('/posts/{post}/like-add', [LikeController::class, 'addPostLike']);
+  Route::get('/posts/{post}/like-destroy', [LikeController::class, 'destroyPostLike']);
 
   Route::middleware('is.admin')->group(function () {
     Route::get('/admin/posts', [PostController::class, 'listForAdmin']);

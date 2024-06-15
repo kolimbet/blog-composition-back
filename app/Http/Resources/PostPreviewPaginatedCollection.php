@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources;
 
-class PostPaginatedCollection extends PaginatedCollection
+class PostPreviewPaginatedCollection extends PaginatedCollection
 {
   /**
    * The resource that this resource collects.
    *
    * @var string
    */
-  public $collects = PostResource::class;
+  public $collects = PostPreviewResource::class;
 
   /**
    * Transform the resource collection into an array.

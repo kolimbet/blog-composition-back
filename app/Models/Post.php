@@ -48,6 +48,14 @@ class Post extends Model
   }
 
   /**
+   * Get likes attached to the post
+   */
+  public function likes()
+  {
+    return $this->hasMany(PostLike::class);
+  }
+
+  /**
    * Get comments on the post
    */
   public function comments()

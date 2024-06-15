@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\FailedDeletingDirectoryException;
 use App\Exceptions\FailedRequestDBException;
 use App\Http\Resources\ImageResource;
-use App\Http\Resources\PostPaginatedCollection;
+use App\Http\Resources\PostPreviewPaginatedCollection;
 use App\Http\Resources\PostResource;
 use App\Http\Resources\TagResource;
 use App\Models\Image;
@@ -42,9 +42,9 @@ class PostController extends Controller
   public function feed(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
-    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
+    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
     return response()->json([
-      'posts' => new PostPaginatedCollection($postList)
+      'posts' => new PostPreviewPaginatedCollection($postList)
     ], 200);
   }
 
@@ -62,10 +62,10 @@ class PostController extends Controller
       throw new ModelNotFoundException("Tag was not found");
     }
 
-    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->paginate($this->pageLimit)->withPath('');
+    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
     return response()->json([
       'tag' => new TagResource($tag),
-      'posts' => new PostPaginatedCollection($postList),
+      'posts' => new PostPreviewPaginatedCollection($postList),
     ], 200);
   }
 
@@ -81,8 +81,8 @@ class PostController extends Controller
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
-    $postList = Post::orderBy('id', 'desc')->paginate($this->pageLimit)->withPath('');
-    return response()->json(new PostPaginatedCollection($postList), 200);
+    $postList = Post::orderBy('id', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
+    return response()->json(new PostPreviewPaginatedCollection($postList), 200);
   }
 
   /**
@@ -96,8 +96,8 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('tags')->first();
-    if (!$post) $post = Post::whereSlug($slug)->with('tags')->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('user')->with('likes')->with('tags')->first();
+    if (!$post) $post = Post::whereSlug($slug)->with('user')->with('likes')->with('tags')->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }
@@ -107,6 +107,7 @@ class PostController extends Controller
       throw new AccessDeniedHttpException('Access denied');
     }
 
+    // Log::info("PostController->debug", [ $post->likes->count(), $post->likes ]);
     return response()->json(new PostResource($post), 200);
   }
 
@@ -127,8 +128,8 @@ class PostController extends Controller
      * @var Post|null
      */
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('tags')->with('images')->first();
-    if (!$post) $post = Post::whereSlug($slug)->with('tags')->with('images')->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('user')->with('likes')->with('tags')->with('images')->first();
+    if (!$post) $post = Post::whereSlug($slug)->with('user')->with('likes')->with('tags')->with('images')->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }

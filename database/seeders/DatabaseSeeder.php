@@ -16,69 +16,107 @@ use Log;
 class DatabaseSeeder extends Seeder
 {
   /**
+   * @var Collection<User>|null
+   */
+  protected $users = null;
+
+  /**
+   * @var Collection<Image>|null
+   */
+  protected $avatars = null;
+
+  /**
+   * Array names of tags
+   *
+   * @var array
+   */
+  public $tagsNames = [
+    'PHP', 'JS', 'functions', 'libraries', 'Namespaces', 'OOP',
+    'Classes', 'Inheritance', 'Traits', 'Interfaces', 'Sessions',
+    'Laravel', 'Symfony', 'Models', 'MVC',
+    'Databases', 'PDO', 'Eloquent', 'Doctrine', 'SQL', 'MySQL', 'PostgreSQL',
+    'VueJS', 'Angular', 'React', 'Lodash', 'Axios',
+    'Vue-Router', 'Vuex', 'Vuelidate', 'Composition API', 'Options API', 'Components',
+    'HTML', 'CSS', 'SCSS', 'Bootstrap', 'Tailwind',
+    'http', 'https', 'www', 'server', 'system administration', 'Apache', 'Nginx',
+    'API', 'Authorization', 'Tokens', 'Laravel Sanctum', 'WebSocket'
+  ];
+
+  public function __construct()
+  {
+    $this->users = new Collection();
+    $this->avatars = new Collection();
+  }
+
+  /**
    * Seed the application's database.
    *
    * @return void
    */
   public function run()
   {
-    $admin = $user[0] = User::factory()->admin()->createOne([
-      'name' => 'admin',
-      'email' => 'admin@mail.ru',
-    ]);
-    $user_avatar[0] = Image::factory()->avatar($user[0])->createOne();
-    $user[0]->avatar_id = $user_avatar[0]->id;
-    $user[0]->save();
+    $this->createUser('admin', 'admin@mail.ru', true, true);
+    $this->createUser('electonic', 'electonic@mail.ru', true, true);
 
-    $user[1] = User::factory()->createOne([
-      'name' => 'user1',
-      'email' => 'user1@mail.ru',
-    ]);
-    $user_avatar[1] = Image::factory()->avatar($user[1])->createOne();
-    $user[1]->avatar_id = $user_avatar[1]->id;
-    $user[1]->save();
+    for ($i = 1; $i <= 15; $i++) {
+      $this->createUser("user{$i}", "user{$i}@mail.ru", random_int(0, 1));
+    }
 
-    $user[2] = User::factory()->createOne([
-      'name' => 'user2',
-      'email' => 'user2@mail.ru',
-    ]);
-    $user_avatar[2] = Image::factory()->avatar($user[2])->createOne();
-    $user[2]->avatar_id = $user_avatar[2]->id;
-    $user[2]->save();
-
-    $user[3] = User::factory()->createOne([
-      'name' => 'user3',
-      'email' => 'user3@mail.ru',
-    ]);
-
-    $tagsList = [
-      'PHP', 'JS', 'functions', 'libraries', 'Namespaces', 'OOP',
-      'Classes', 'Inheritance','Traits', 'Interfaces', 'Sessions',
-      'Laravel', 'Symfony', 'Models', 'MVC',
-      'Databases', 'PDO', 'Eloquent', 'Doctrine', 'SQL', 'MySQL', 'PostgreSQL',
-      'VueJS', 'Angular', 'React', 'Lodash', 'Axios',
-      'Vue-Router', 'Vuex', 'Vuelidate', 'Composition API', 'Options API', 'Components',
-      'HTML', 'CSS', 'SCSS', 'Bootstrap', 'Tailwind',
-      'http', 'https', 'www', 'server', 'system administration', 'Apache', 'Nginx',
-      'API', 'Authorization', 'Tokens', 'Laravel Sanctum', 'WebSocket'
-    ];
     /**
      * @var Collection<Tag>
      */
     $tags =  new Collection();
-    foreach ($tagsList as $tagName) {
-      $tags->push(Tag::factory()->generateByName($tagName)->createOne()) ;
+    foreach ($this->tagsNames as $tagName) {
+      $tags->push(Tag::factory()->generateByName($tagName)->createOne());
     }
 
     $posts = Post::factory(100)->create();
     foreach ($posts as $post) {
       $post->tags()->attach($tags->random(random_int(1, 5)));
-      // $post->comments()->saveMany(Comment::factory(random_int(0, 10))->create());
-      // if (random_int(0, 9)) {
-      //   $mainImage = Image::factory()->postImage($post->user()->getResults(), $post)->create();
-      //   $post->main_image_id = $mainImage->id;
-      //   $post->save();
-      // }
+      $likesCounter = random_int(0, $this->users->count());
+      if ($likesCounter) {
+        $likesBy = $this->users->random($likesCounter);
+        $likesBy->each(function ($user) use ($post) {
+          $post->likes()->create(['user_id' => $user->id]);
+        });
+      }
     }
+  }
+
+  /**
+   * Create new User
+   *
+   * @param string $name
+   * @param string $mail
+   * @param boolean $isAdmin
+   * @return void
+   */
+  protected function createUser($name, $mail, $withAvatar = false, $isAdmin = false)
+  {
+    /**
+     * @var User|null
+     */
+    $newUser = null;
+
+    if ($isAdmin) {
+      $newUser = User::factory()->admin()->createOne([
+        'name' => $name,
+        'email' => $mail,
+      ]);
+    } else {
+      $newUser = User::factory()->createOne([
+        'name' => $name,
+        'email' => $mail,
+      ]);
+    }
+
+    if ($withAvatar) {
+      $newAvatar = Image::factory()->avatar($newUser)->createOne();
+      $newUser->avatar_id = $newAvatar->id;
+      $newUser->save();
+      $this->avatars->push($newAvatar);
+    }
+
+    $this->users->push($newUser);
   }
 };

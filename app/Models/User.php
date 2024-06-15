@@ -57,6 +57,14 @@ class User extends Authenticatable
   }
 
   /**
+   * Get postLikes written by the user
+   */
+  public function postLikes()
+  {
+    return $this->hasMany(PostLike::class);
+  }
+
+  /**
    * Get images added by the user
    */
   public function images() {
