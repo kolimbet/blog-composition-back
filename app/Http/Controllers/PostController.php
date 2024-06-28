@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\RecordsNotFoundException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use DB;
 use Log;
 use Nette\DirectoryNotFoundException;
 use Storage;
@@ -42,10 +42,13 @@ class PostController extends Controller
   public function feed(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
-    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
-    return response()->json([
+    // DB::enableQueryLog();
+    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->with(['user.avatar', 'likes'])->paginate($this->pageLimit)->withPath('');
+    $result = response()->json([
       'posts' => new PostPreviewPaginatedCollection($postList)
     ], 200);
+    // Log::info("PostController->feed() DB query log:", [DB::getQueryLog()]);
+    return $result;
   }
 
   /**
@@ -57,16 +60,19 @@ class PostController extends Controller
    */
   public function listByTag(Request $request, $tagSlug)
   {
+    // DB::enableQueryLog();
     $tag = Tag::whereSlug($tagSlug)->first();
     if (!$tag) {
       throw new ModelNotFoundException("Tag was not found");
     }
 
-    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
-    return response()->json([
+    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->with(['user.avatar', 'likes'])->paginate($this->pageLimit)->withPath('');
+    $result = response()->json([
       'tag' => new TagResource($tag),
       'posts' => new PostPreviewPaginatedCollection($postList),
     ], 200);
+    // Log::info("PostController->listByTag() DB query log:", [DB::getQueryLog()]);
+    return $result;
   }
 
   /**
@@ -78,11 +84,14 @@ class PostController extends Controller
   public function listForAdmin(Request $request)
   {
     // return response()->json(["error" => "Test error"], 500);
+    // DB::enableQueryLog();
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
-    $postList = Post::orderBy('id', 'desc')->with('user')->with('likes')->paginate($this->pageLimit)->withPath('');
-    return response()->json(new PostPreviewPaginatedCollection($postList), 200);
+    $postList = Post::orderBy('id', 'desc')->with(['user.avatar', 'likes'])->paginate($this->pageLimit)->withPath('');
+    $result = response()->json(new PostPreviewPaginatedCollection($postList), 200);
+    // Log::info("PostController->listForAdmin() DB query log:", [DB::getQueryLog()]);
+    return $result;
   }
 
   /**
@@ -95,9 +104,10 @@ class PostController extends Controller
   public function show(Request $request, $slug)
   {
     // return response()->json(["error" => "Test error"], 500);
+    // DB::enableQueryLog();
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('user')->with('likes')->with('tags')->first();
-    if (!$post) $post = Post::whereSlug($slug)->with('user')->with('likes')->with('tags')->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with(['user.avatar', 'likes', 'tags'])->first();
+    if (!$post) $post = Post::whereSlug($slug)->with(['user.avatar', 'likes', 'tags'])->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }
@@ -107,8 +117,9 @@ class PostController extends Controller
       throw new AccessDeniedHttpException('Access denied');
     }
 
-    // Log::info("PostController->debug", [ $post->likes->count(), $post->likes ]);
-    return response()->json(new PostResource($post), 200);
+    $result = response()->json(new PostResource($post), 200);
+    // Log::info("PostController->show() DB query log:", [DB::getQueryLog()]);
+    return $result;
   }
 
   /**
@@ -121,6 +132,7 @@ class PostController extends Controller
   public function showForAdmin(Request $request, $slug)
   {
     // return response()->json(["error" => 'test error'], 500);
+    // DB::enableQueryLog();
     $user = $request->user();
     if (!$user->isAdmin()) throw new AccessDeniedHttpException('Access denied');
 
@@ -128,19 +140,21 @@ class PostController extends Controller
      * @var Post|null
      */
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->with('user')->with('likes')->with('tags')->with('images')->first();
-    if (!$post) $post = Post::whereSlug($slug)->with('user')->with('likes')->with('tags')->with('images')->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with(['user.avatar', 'likes', 'tags', 'images'])->first();
+    if (!$post) $post = Post::whereSlug($slug)->with(['user.avatar', 'likes', 'tags', 'images'])->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }
 
     $images = $post->images;
     $tags = $post->tags;
-    return response()->json([
+    $result = response()->json([
       'post' => $post,
       'tags' => $tags ? TagResource::collection($tags) : [],
       'images' => $images ? ImageResource::collection($images) : []
     ], 200);
+    // Log::info("PostController->showForAdmin() DB query log:", [DB::getQueryLog()]);
+    return $result;
   }
 
   /**
