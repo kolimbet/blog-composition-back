@@ -73,12 +73,20 @@ class DatabaseSeeder extends Seeder
     $posts = Post::factory(100)->create();
     foreach ($posts as $post) {
       $post->tags()->attach($tags->random(random_int(1, 5)));
+
       $likesCounter = random_int(0, $this->users->count());
       if ($likesCounter) {
         $likesBy = $this->users->random($likesCounter);
         $likesBy->each(function ($user) use ($post) {
           $post->likes()->create(['user_id' => $user->id]);
         });
+      }
+
+      if ($post->is_published) {
+        $commentsCounter = random_int(0, 25);
+        if ($commentsCounter) {
+          Comment::factory($commentsCounter, ['post_id' => $post->id])->create();
+        }
       }
     }
   }
@@ -104,7 +112,7 @@ class DatabaseSeeder extends Seeder
         'email' => $mail,
       ]);
     } else {
-      $newUser = User::factory()->createOne([
+      $newUser = User::factory()->simple_user()->createOne([
         'name' => $name,
         'email' => $mail,
       ]);

@@ -16,6 +16,9 @@ return new class extends Migration
     Schema::table('users', function (Blueprint $table) {
       $table->boolean('is_admin')->default(false)->index();
 
+      $table->boolean('is_tested')->default(false);
+      $table->boolean('pre_moderation')->default(false);
+
       $table->boolean('is_banned')->default(false)->index();
       $table->foreignId('banned_by')->nullable()->constrained('users', 'id')->cascadeOnDelete();
       $table->dateTime('ban_time')->nullable();
@@ -42,6 +45,9 @@ return new class extends Migration
       $table->dropConstrainedForeignId('banned_by');
       $table->dropIndex(['is_banned']);
       $table->dropColumn('is_banned');
+
+      $table->dropColumn('pre_moderation');
+      $table->dropColumn('is_tested');
 
       $table->dropIndex(['is_admin']);
       $table->dropColumn('is_admin');

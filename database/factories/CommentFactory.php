@@ -19,22 +19,28 @@ class CommentFactory extends Factory
   public function definition()
   {
     $paragraphs = $this->faker->paragraphs(random_int(1, 3));
-    $text = '';
+    $text_html = '';
+    $text_delta = '';
     foreach ($paragraphs as $paragraph) {
-      $text .= '<p>' . $paragraph . '</p>';
+      $text_html .= '<p>' . $paragraph . '</p>';
+      $text_delta .= $paragraph . '\n';
     }
 
-    $deleted = !((bool) random_int(0, 9));
+    $is_published = (bool) random_int(0, 9);
+    $is_checked = $is_published ? true : false;
+
+    $is_deleted = $is_checked ? false : (bool) random_int(0, 1);
 
     return [
       'post_id' => Post::inRandomOrder()->first(),
       'user_id' => User::inRandomOrder()->first(),
-      'text_raw' => '',
-      'text_html' => $text,
-      'is_published' => (bool) random_int(0, 9),
+      'text_raw' => '{"ops":[{"insert":"' . $text_delta . '"}]}',
+      'text_html' => $text_html,
+      'is_published' => $is_published,
+      'is_checked' => $is_checked,
 
-      'deleted_at' => $deleted ? now() : null,
-      'deleted_by' => $deleted ? User::where('is_admin', true)->inRandomOrder()->first() : null,
+      'deleted_at' => $is_deleted ? now() : null,
+      'deleted_by' => $is_deleted ? User::where('is_admin', true)->inRandomOrder()->first() : null,
     ];
   }
 }

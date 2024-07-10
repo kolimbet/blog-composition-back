@@ -15,6 +15,8 @@ class Comment extends Model
     'text_raw',
     'text_html',
     'is_published',
+    'is_checked',
+    'deleted_at',
     'deleted_by',
   ];
 
@@ -32,5 +34,13 @@ class Comment extends Model
   public function post()
   {
     return $this->belongsTo(Post::class);
+  }
+
+  /**
+   * Get the admin who deleted the message
+   */
+  public function deletedBy()
+  {
+    return $this->belongsTo(User::class, 'id', 'deleted_by');
   }
 }

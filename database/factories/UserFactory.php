@@ -43,14 +43,21 @@ class UserFactory extends Factory
   public function admin()
   {
     return $this->state(function (array $attributes) {
-      return ['is_admin' => true];
+      return [
+        'is_admin' => true,
+        'is_tested' => true,
+      ];
     });
   }
 
   public function simple_user()
   {
     return $this->state(function (array $attributes) {
-      return ['is_admin' => false];
+      return [
+        'is_admin' => false,
+        'is_tested' => (bool) random_int(0, 2),
+        'pre_moderation' => !(bool) random_int(0, 5),
+      ];
     });
   }
 

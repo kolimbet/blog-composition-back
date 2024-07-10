@@ -22,6 +22,8 @@ class User extends Authenticatable
     'email',
     'password',
     'is_admin',
+    'is_tested',
+    'pre_moderation',
     'is_banned',
     'banned_by',
     'ban_time',
@@ -84,6 +86,14 @@ class User extends Authenticatable
   public function comments()
   {
     return $this->hasMany(Comment::class);
+  }
+
+  /**
+   * Get comments deleted by the user
+   */
+  public function commentsDeletedByUser()
+  {
+    return $this->hasMany(Comment::class, 'deleted_by', 'id');
   }
 
   /**
