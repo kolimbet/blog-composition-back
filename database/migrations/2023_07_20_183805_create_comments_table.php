@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('text_raw');
             $table->text('text_html');
             $table->boolean('is_published')->default(false)->index();
+            $table->timestamp('published_at')->nullable()->index();
             $table->boolean('is_checked')->default(false)->index();
             $table->softDeletes();
             $table->foreignId('deleted_by')->nullable()->constrained('users')->cascadeOnDelete();

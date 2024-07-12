@@ -16,5 +16,6 @@ class CommentResource extends JsonResource
     {
       $result = parent::toArray($request);
       $result['author'] = new UserResource($this->user);
+      return $result;
     }
 }

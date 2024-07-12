@@ -8,6 +8,7 @@ use App\Http\Resources\CommentPaginatedCollection;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
+use DB;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Log;
@@ -33,11 +34,22 @@ class CommentController extends Controller
   public function listForPost(Request $request, Post $post)
   {
     // return response()->json(["error" => "Test error"], 500);
-    // DB::enableQueryLog();
-    $user = $request->user();
-    $comments = $post->comments()->where('is_published', true)->orWhere('user_id', $user->id)->orderBy('id', 'desc')->with('user.avatar')->paginate($this->pageLimit)->withPath('');
+    DB::enableQueryLog();
+    $user = auth('sanctum')->user();
+    $comments = false;
+    if ($user) {
+      $comments = Comment::where('post_id', $post->id)->where(function ($query) use ($user) {
+        $query->where('is_published', true)->orWhere('user_id', $user->id);
+      })->orderBy('is_published', 'desc')->orderBy('published_at', 'asc')->orderBy('id', 'asc')
+        ->with('user.avatar')->paginate($this->pageLimit)->withPath('');
+    } else {
+      $comments = Comment::where('post_id', $post->id)->where('is_published', true)
+        ->orderBy('published_at', 'asc')->orderBy('id', 'asc')
+        ->with('user.avatar')->paginate($this->pageLimit)->withPath('');
+    }
+
     $result = response()->json(new CommentPaginatedCollection($comments), 200);
-    // Log::info("CommentController->listForPost() DB query log:", [DB::getQueryLog()]);
+    Log::info("CommentController->listForPost() DB query log:", [$user ? $user->id : "noAuth", DB::getQueryLog()]);
     return $result;
   }
 
