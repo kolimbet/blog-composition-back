@@ -43,7 +43,8 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     // DB::enableQueryLog();
-    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->with(['user.avatar', 'likes'])->paginate($this->pageLimit)->withPath('');
+    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')
+      ->with(['user.avatar', 'likes'])->withCount('comments')->paginate($this->pageLimit)->withPath('');
     $result = response()->json([
       'posts' => new PostPreviewPaginatedCollection($postList)
     ], 200);
@@ -66,7 +67,8 @@ class PostController extends Controller
       throw new ModelNotFoundException("Tag was not found");
     }
 
-    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->with(['user.avatar', 'likes'])->paginate($this->pageLimit)->withPath('');
+    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')
+      ->with(['user.avatar', 'likes'])->withCount('comments')->paginate($this->pageLimit)->withPath('');
     $result = response()->json([
       'tag' => new TagResource($tag),
       'posts' => new PostPreviewPaginatedCollection($postList),
@@ -106,8 +108,8 @@ class PostController extends Controller
     // return response()->json(["error" => "Test error"], 500);
     // DB::enableQueryLog();
     $post = null;
-    if (ctype_digit($slug)) $post = Post::whereId($slug)->with(['user.avatar', 'likes', 'tags'])->first();
-    if (!$post) $post = Post::whereSlug($slug)->with(['user.avatar', 'likes', 'tags'])->first();
+    if (ctype_digit($slug)) $post = Post::whereId($slug)->with(['user.avatar', 'likes', 'tags'])->withCount('comments')->first();
+    if (!$post) $post = Post::whereSlug($slug)->with(['user.avatar', 'likes', 'tags'])->withCount('comments')->first();
     if (!$post) {
       throw new ModelNotFoundException("Post was not found");
     }

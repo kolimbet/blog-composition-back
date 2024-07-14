@@ -34,7 +34,7 @@ class CommentController extends Controller
   public function listForPost(Request $request, Post $post)
   {
     // return response()->json(["error" => "Test error"], 500);
-    DB::enableQueryLog();
+    // DB::enableQueryLog();
     $user = auth('sanctum')->user();
     $comments = false;
     if ($user) {
@@ -49,7 +49,7 @@ class CommentController extends Controller
     }
 
     $result = response()->json(new CommentPaginatedCollection($comments), 200);
-    Log::info("CommentController->listForPost() DB query log:", [$user ? $user->id : "noAuth", DB::getQueryLog()]);
+    // Log::info("CommentController->listForPost() DB query log:", [$user ? $user->id : "noAuth", DB::getQueryLog()]);
     return $result;
   }
 
