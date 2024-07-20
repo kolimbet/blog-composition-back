@@ -62,6 +62,7 @@ class CommentController extends Controller
    */
   public function store(CommentRequest $request, Post $post)
   {
+    // return response()->json(["error" => "Test error"], 500);
     $user = $request->user();
     if ($user->is_banned) {
       throw new AccessDeniedHttpException('Access denied. You are banned.');
@@ -104,6 +105,6 @@ class CommentController extends Controller
     }
 
     Log::info("Comment #{$comment->id} has been deleted by the {$user->name} #{$user->id}");
-    return response()->json(["Tag #{$comment->id} has been successfully deleted"], 200);
+    return response()->json(["Comment #{$comment->id} has been successfully deleted"], 200);
   }
 }
