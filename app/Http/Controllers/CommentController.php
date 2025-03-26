@@ -8,8 +8,6 @@ use App\Http\Resources\CommentPaginatedCollection;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
-use DB;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Log;
 use Response;
@@ -28,7 +26,7 @@ class CommentController extends Controller
    * Returns a paginated list of comments for the post
    *
    * @param Request $request
-   * @param string $postSlug
+   * @param Post $post
    * @return Response
    */
   public function listForPost(Request $request, Post $post)

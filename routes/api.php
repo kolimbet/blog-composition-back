@@ -23,6 +23,7 @@ Route::post('/name-is-free', [UserController::class, 'nameIsFree']);
 Route::post('/email-is-free', [UserController::class, 'emailIsFree']);
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
+Route::get('/users/{id}', [UserController::class, 'aboutAnother']);
 
 Route::get('/posts', [PostController::class, 'feed']);
 Route::get('/posts/by-tag/{tagSlug}', [PostController::class, 'listByTag']);
@@ -33,7 +34,8 @@ Route::get('/posts/{post}/comments', [CommentController::class, 'listForPost']);
 Route::middleware('auth:sanctum')->group(function () {
   Route::get('/logout', [UserController::class, 'logout']);
 
-  Route::get('/user', [UserController::class, 'index']);
+  Route::get('/check-auth', [UserController::class, 'checkAuth']);
+  Route::get('/user/self', [UserController::class, 'aboutSelf']);
 
   Route::post('/user/check-password', [UserController::class, 'checkPassword']);
   Route::post('/user/update-password', [UserController::class, 'updatePassword']);

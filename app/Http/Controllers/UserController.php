@@ -5,10 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CreateUserRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\UpdateUserPasswordRequest;
+use App\Http\Resources\CommentResource;
+use App\Http\Resources\PostResource;
 use App\Http\Resources\UserResource;
+use App\Models\Comment;
+use App\Models\Post;
 use App\Models\User;
 use Auth;
 use Hash;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Log;
 
@@ -20,9 +25,62 @@ class UserController extends Controller
    * @param Request $request
    * @return \Illuminate\Http\Response
    */
-  public function index(Request $request)
+  public function checkAuth(Request $request)
   {
     return response()->json(new UserResource($request->user()), 200);
+  }
+
+  /**
+   * Get extended data about an authorized user
+   *
+   * @param Request $request
+   * @return \Illuminate\Http\Response
+   */
+  public function aboutSelf(Request $request)
+  {
+    $user = User::whereId($request->user()->id)->with('avatar')->withCount('comments')->withCount('posts')->first();
+
+    return $this->about($user);
+  }
+
+  /**
+   * Get extended data about User by ID
+   *
+   * @param Request $request
+   * @param [type] $id  User ID
+   * @return \Illuminate\Http\Response
+   */
+  public function aboutAnother(Request $request , $id) {
+    $user = User::whereId($id)->with('avatar')->withCount('comments')->withCount('posts')->first();
+
+    if (!$user) {
+      throw new ModelNotFoundException('User was not found');
+    }
+
+    return $this->about($user);
+  }
+
+  /**
+   * Get extended data about User
+   *
+   * @param User $user
+   * @return \Illuminate\Http\Response
+   */
+  protected function about(User $user) {
+    $res = [];
+
+    $res['user'] = new UserResource($user);
+
+    $res['last_comments'] = Comment::whereUserId($user->id)->with('user.avatar')->orderBy('id', 'desc')->limit(5)->get();
+    $res['last_comments'] = CommentResource::collection($res['last_comments']);
+
+    if ($user->is_admin) {
+      $res['last_post'] = Post::whereUserId($user->id)->where('is_published', true)
+        ->with(['user.avatar', 'likes'])->withCount('comments')->orderBy('id', 'desc')->first();
+      $res['last_post'] = new PostResource($res['last_post']);
+    }
+
+    return response()->json($res, 200);
   }
 
   /**
