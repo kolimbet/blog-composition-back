@@ -43,7 +43,7 @@ class PostController extends Controller
   {
     // return response()->json(["error" => "Test error"], 500);
     // DB::enableQueryLog();
-    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')
+    $postList = Post::where('is_published', true)->orderBy('published_at', 'desc')->orderBy('id', 'desc')
       ->with(['user.avatar', 'likes'])->withCount('comments')->paginate($this->pageLimit)->withPath('');
     $result = response()->json([
       'posts' => new PostPreviewPaginatedCollection($postList)
@@ -67,7 +67,7 @@ class PostController extends Controller
       throw new ModelNotFoundException("Tag was not found");
     }
 
-    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')
+    $postList = $tag->posts()->where('is_published', true)->orderBy('published_at', 'desc')->orderBy('id', 'desc')
       ->with(['user.avatar', 'likes'])->withCount('comments')->paginate($this->pageLimit)->withPath('');
     $result = response()->json([
       'tag' => new TagResource($tag),
